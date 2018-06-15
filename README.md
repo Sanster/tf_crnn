@@ -7,15 +7,15 @@ Code: http://github.com/bgshih/crnn
 
 ## Requirements
 ```shell
-sudo pip3 install tensorflow opencv-python numpy
+sudo pip3 install -r requirement.txt
 ```
 
 ## Prepare training data
-Check https://github.com/Sanster/text_renderer to see how to generate image for training
+Check [Text Renderer](https://github.com/Sanster/text_renderer) to see how to generate images for training,
+or you can download pre-generated image from here []()
 
 ## Train
 ```shell
-python3 main.py \
---
+python3 train.py
 ```
 

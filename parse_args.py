@@ -8,8 +8,6 @@ tf.app.flags.DEFINE_string('log_dir', './log', 'save log of tensorflwo')
 tf.app.flags.DEFINE_string('result_dir', './result', 'save val/test result')
 tf.app.flags.DEFINE_string('chars_file', './data/chars/chn_10.txt', 'chars file to load in data dir')
 
-# LSTM
-tf.app.flags.DEFINE_integer('lstm_layer', 2, 'LSTM layers after CNN, 1 or 2')
 tf.app.flags.DEFINE_integer('num_hidden', 256, 'number of hidden units in lstm')
 
 # CNN
@@ -17,9 +15,7 @@ tf.app.flags.DEFINE_string('cnn', 'raw', 'raw/raw_light')
 
 tf.app.flags.DEFINE_integer('num_epochs', 2000, 'epochs num')
 tf.app.flags.DEFINE_integer('step_do_val', 3000, 'steps to do val/test images and save checkpoint')
-tf.app.flags.DEFINE_integer('step_write_summary', 20, 'steps to write summary')
 tf.app.flags.DEFINE_integer('batch_size', 64, 'the batch_size')
-tf.app.flags.DEFINE_string('decode_mode', 'ctc', 'softmax or ctc')
 
 # Optimizer
 tf.app.flags.DEFINE_string('optim', 'adadelate', 'Optimizer to use: adadelate, adam, rms')

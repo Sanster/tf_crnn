@@ -1,6 +1,5 @@
 import tensorflow as tf
-import numpy as np
-from .raw_cnn import RawCNN
+from nets.cnn.raw_cnn import RawCNN
 
 
 class CRNN(object):
@@ -109,6 +108,7 @@ class CRNN(object):
 
         # inputs shape: [max_time x batch_size x num_classes]
         self.decoded, self.log_prob = tf.nn.ctc_greedy_decoder(self.logits, self.seq_len, merge_repeated=True)
+
         # it's slower but you'll get better results
         # self.decoded, self.log_prob = tf.nn.ctc_beam_search_decoder(inputs=self.logits,
         #                                                             sequence_length=self.seq_len,
@@ -121,10 +121,6 @@ class CRNN(object):
         # batch labels error rate
         self.edit_distance = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.labels)
         self.edit_distance_mean = tf.reduce_mean(tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.labels))
-
-        self.softmax_output = tf.nn.softmax(self.logits, name='softmax_output')
-        self.softmax_output = tf.transpose(self.softmax_output, (1, 0, 2))
-        self.predict_softmax = tf.argmax(self.softmax_output, 2)
 
     def _LSTM_cell(self, num_proj=None):
         cell = tf.nn.rnn_cell.LSTMCell(num_units=self.FLAGS.num_hidden, num_proj=num_proj)

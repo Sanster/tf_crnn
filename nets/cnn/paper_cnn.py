@@ -1,4 +1,4 @@
-from .net_util import *
+from nets.net_util import *
 
 
 def RawCNN(inputs, feature_maps, is_training):
