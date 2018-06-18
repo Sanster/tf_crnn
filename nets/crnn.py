@@ -3,10 +3,10 @@ import tensorflow.contrib.slim as slim
 
 from nets.cnn.paper_cnn import PaperCNN
 
-CTC_INVALID_INDEX = -1
-
 
 class CRNN(object):
+    CTC_INVALID_INDEX = -1
+
     def __init__(self, FLAGS, num_classes):
         self.inputs = tf.placeholder(tf.float32,
                                      [None, 32, None, 1],
@@ -93,11 +93,13 @@ class CRNN(object):
         # dense_decoded shape: [batch_size, encoded_code_size(not fix)]
         # use tf.cast here to support run model on Android
         self.dense_decoded = tf.sparse_tensor_to_dense(tf.cast(self.decoded[0], tf.int32),
-                                                       default_value=CTC_INVALID_INDEX)
+                                                       default_value=self.CTC_INVALID_INDEX)
 
-        # batch labels error rate
-        self.edit_distance = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.labels)
-        self.edit_distance_mean = tf.reduce_mean(tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.labels))
+        # Edit distance for wrong result
+        self.edit_distances = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.labels)
+
+        non_zero_indices = tf.where(tf.not_equal(self.edit_distances, 0))
+        self.edit_distance = tf.resduce_mean(tf.gather(self.edit_distances, non_zero_indices))
 
     def _LSTM_cell(self, num_proj=None):
         cell = tf.nn.rnn_cell.LSTMCell(num_units=self.FLAGS.num_hidden, num_proj=num_proj)

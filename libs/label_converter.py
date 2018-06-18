@@ -15,6 +15,8 @@ class LabelConverter:
 
         self.create_encode_decode_maps(self.chars)
 
+        print('Load chars file: %d num_classes: %d + 1(CTC Black)' % (chars_file, self.num_classes - 1))
+
     def create_encode_decode_maps(self, chars):
         for i, char in enumerate(chars):
             self.encode_maps[char] = i
@@ -26,8 +28,8 @@ class LabelConverter:
         for c in label:
             if c in self.chars:
                 encoded_label.append(self.encode_maps[c])
-            # else:
-            #     encoded_label.append(-1)
+                # else:
+                #     encoded_label.append(-1)
 
         return encoded_label
 
@@ -41,20 +43,18 @@ class LabelConverter:
         """
         :param encoded_label result of ctc_greedy_decoder
         :param invalid_index ctc空白符的索引
+        :return decode label string
         """
+        label = []
         for index, char_index in enumerate(encoded_label):
             if char_index != invalid_index:
-                if not merge_repeat:
-                    label_filtered.append(char_index)
-                else:
-                    if index > 0 and char_index != encoded_label[index - 1]:
-                        label_filtered.append(char_index)
+                label.append(char_index)
 
-        label = [self.decode_maps[c] for c in label_filtered]
+        label = [self.decode_maps[c] for c in label]
         return ''.join(label).strip()
 
-    def decode_list(self, encoded_labels, invalid_index, merge_repeat):
+    def decode_list(self, encoded_labels, invalid_index):
         decoded_labels = []
         for encoded_label in encoded_labels:
-            decoded_labels.append(self.decode(encoded_label, invalid_index, merge_repeat))
+            decoded_labels.append(self.decode(encoded_label, invalid_index))
         return decoded_labels

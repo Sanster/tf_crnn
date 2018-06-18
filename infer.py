@@ -1,7 +1,6 @@
 import os
 import time
 import math
-import sys
 import shutil
 
 import numpy as np
@@ -15,8 +14,6 @@ from libs.img_dataset import ImgDataset
 import libs.algorithms as algorithms
 
 import libs.tf_utils as tf_utils
-
-logging = utils.logging
 
 
 def create_convert():
@@ -71,7 +68,7 @@ def train():
 
         epoch_restored = 0
         batch_start = 0
-        if FLAGS.restore:
+        if FLAGS._restore:
             utils.restore_ckpt(sess, saver, FLAGS.checkpoint_dir)
             step_restored = sess.run(model.global_step)
             epoch_restored = math.floor(step_restored / num_batches)
@@ -334,32 +331,15 @@ def cal_edit_distance(t_labels, p_labels):
     return edit_distances
 
 
-def main(_):
-    if FLAGS.num_gpus == 0:
-        dev = '/cpu:0'
-    elif FLAGS.num_gpus == 1:
+def main(args):
+    if args.gpu == 0:
         dev = '/gpu:0'
     else:
-        raise ValueError('Only support 0 or 1 gpu.')
-
-    FLAGS.checkpoint_dir = os.path.join(FLAGS.checkpoint_dir, FLAGS.tag)
-    FLAGS.log_dir = os.path.join(FLAGS.log_dir, FLAGS.tag)
-    FLAGS.result_dir = os.path.join(FLAGS.result_dir, FLAGS.tag)
-
-    utils.check_dir_exist(FLAGS.checkpoint_dir)
-    utils.check_dir_exist(FLAGS.log_dir)
-    utils.check_dir_exist(FLAGS.result_dir)
+        dev = '/cpu:0'
 
     with tf.device(dev):
-        if FLAGS.mode == 'train':
-            flags_dir = os.path.join(FLAGS.checkpoint_dir, "flags")
-            tf_utils.save_flags(FLAGS, flags_dir)
-            train()
-
-        elif FLAGS.mode == 'infer':
-            infer(FLAGS.infer_dir)
+        infer(FLAGS.infer_dir)
 
 
 if __name__ == '__main__':
-    tf.logging.set_verbosity(tf.logging.INFO)
-    tf.app.run()
+    main()

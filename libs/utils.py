@@ -2,10 +2,7 @@ import os
 import numpy as np
 import tensorflow as tf
 import cv2
-import logging
 from functools import reduce
-
-logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO)
 
 
 def load_chars(filepath):
@@ -73,47 +70,19 @@ def dense_to_sparse(dense_tensor, sparse_val=-1):
         return tf.SparseTensor(sparse_inds, sparse_vals, dense_shape)
 
 
-def sparse_tuple_from_label(sequences, default_val=-1, dtype=np.int32):
-    """Create a sparse representention of x.
-    Args:
-        sequences: a list of lists of type dtype where each element is a sequence
-                  encode label, e.g: [2,44,11,55]
-        default_val: value should be ignored in sequences
-    Returns:
-        A tuple with (indices, values, shape)
-    """
-    indices = []
-    values = []
-
-    for n, seq in enumerate(sequences):
-        seq_filtered = list(filter(lambda x: x != default_val, seq))
-        indices.extend(zip([n] * len(seq_filtered), range(len(seq_filtered))))
-        values.extend(seq_filtered)
-
-    indices = np.asarray(indices, dtype=np.int64)
-    values = np.asarray(values, dtype=dtype)
-
-    if len(indices) == 0:
-        shape = np.asarray([len(sequences), 0], dtype=np.int64)
-    else:
-        shape = np.asarray([len(sequences), np.asarray(indices).max(0)[1] + 1], dtype=np.int64)
-
-    return indices, values, shape
-
-
 def check_dir_exist(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)
 
 
 def restore_ckpt(sess, saver, checkpoint_dir):
-    print("Restoring checkpoint from: " + checkpoint_dir)
     ckpt = tf.train.latest_checkpoint(checkpoint_dir)
     try:
-        saver.restore(sess, ckpt)
-        logging.info('restore from ckpt {}'.format(ckpt))
+        saver._restore(sess, ckpt)
+        print('Restore from {}'.format(ckpt))
     except Exception:
-        raise Exception("Can not restore from {}".format(checkpoint_dir))
+        print("Can not restore from {}".format(checkpoint_dir))
+        exit(-1)
 
 
 def count_tf_params():
@@ -125,7 +94,6 @@ def count_tf_params():
     n = sum(size(v) for v in tf.trainable_variables())
     print("Tensorflow Model size: %dK" % (n / 1000,))
     return n
-
 
 
 def get_img_paths_and_labels(img_dir):
@@ -163,7 +131,7 @@ def get_img_paths_and_labels2(img_dir):
                 label_path = os.path.join(root, file_name[:-4] + '.txt')
                 labels.append(read_label(label_path))
             else:
-                logging.info('file not found: {}'.format(file_name))
+                print('file not found: {}'.format(file_name))
 
     return img_paths, labels
 
@@ -192,29 +160,3 @@ def build_img_paths(img_dir, img_count):
         img_paths.append(img_path)
 
     return img_paths
-
-
-def acc_under_edit_distances(edit_distances, threshold):
-    """
-    将 edit_distance 小于 threshold 的预测结果也认为是全对，并计算"全对率"
-    """
-    count = 0
-    for ed in edit_distances:
-        if ed < threshold:
-            count += 1
-    acc = count / len(edit_distances)
-    result = "Accuracy edit_distance < {}: {:.03f}".format(threshold, acc)
-    logging.info(result)
-    return result
-
-
-if __name__ == '__main__':
-    # im = cv2.imdecode(np.fromfile('../data/1.jpg', dtype=np.uint8), 0)
-    # cv2.imencode('.jpg', im)[1].tofile("../data/测试.jpg")
-
-    a, b = get_img_paths_and_labels2('/home/cwq/code/Gword/output/default')
-    aa = 0
-
-    # Test load_labels(filepath, img_num)
-    labels = load_labels("/home/cwq/code/ocr_end2end/output/val/labels.txt", 500)
-    assert len(labels) == 500

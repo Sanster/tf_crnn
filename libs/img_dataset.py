@@ -58,12 +58,38 @@ class ImgDataset:
     def get_next_batch(self, sess):
         """return images and labels of a batch"""
         img_batch, labels, img_paths = sess.run(self.next_batch)
-        img_paths = [p.decoded() for p in img_paths]
         labels = [l.decoded() for l in labels]
 
         encoded_label_batch = self.converter.encode_list(labels)
-        sparse_label_batch = utils.sparse_tuple_from_label(encoded_label_batch)
-        return img_batch, sparse_label_batch, (labels, encoded_label_batch), img_paths
+        sparse_label_batch = self._sparse_tuple_from_label(encoded_label_batch)
+        return img_batch, sparse_label_batch, labels
+
+    def _sparse_tuple_from_label(self, sequences, default_val=-1, dtype=np.int32):
+        """Create a sparse representention of x.
+        Args:
+            sequences: a list of lists of type dtype where each element is a sequence
+                      encode label, e.g: [2,44,11,55]
+            default_val: value should be ignored in sequences
+        Returns:
+            A tuple with (indices, values, shape)
+        """
+        indices = []
+        values = []
+
+        for n, seq in enumerate(sequences):
+            seq_filtered = list(filter(lambda x: x != default_val, seq))
+            indices.extend(zip([n] * len(seq_filtered), range(len(seq_filtered))))
+            values.extend(seq_filtered)
+
+        indices = np.asarray(indices, dtype=np.int64)
+        values = np.asarray(values, dtype=dtype)
+
+        if len(indices) == 0:
+            shape = np.asarray([len(sequences), 0], dtype=np.int64)
+        else:
+            shape = np.asarray([len(sequences), np.asarray(indices).max(0)[1] + 1], dtype=np.int64)
+
+        return indices, values, shape
 
     def _create_dataset(self, img_paths, labels):
         img_paths = tf.convert_to_tensor(img_paths, dtype=dtypes.string)

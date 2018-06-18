@@ -1,265 +1,144 @@
 import os
 import time
 import math
-import shutil
 
 import numpy as np
 import tensorflow as tf
 
 import libs.utils as utils
-from libs.utils import logging
 import libs.tf_utils as tf_utils
 from libs.img_dataset import ImgDataset
 from libs.label_converter import LabelConverter
-import libs.algorithms as algorithms
+import libs.infer as infer
 
 from nets.crnn import CRNN
 from parse_args import parse_args
 
 
-def add_train_acc_summary(sess, model, converter, writer, img_batch, label_batch, labels, global_step):
-    _, _, edit_distances = do_infer_on_batch(sess, model, converter, img_batch, label_batch,
-                                             labels)
+class Trainer(object):
+    def __init__(self, args):
+        self.args = args
 
-    edit_distance_mean, correct_count = analyze_edit_distances(edit_distances)
+        self.converter = LabelConverter(chars_file=args.chars_file)
 
-    tf_utils.add_scalar_summary(writer, "train_accuracy", correct_count / len(img_batch),
-                                global_step)
+        self.tr_ds = ImgDataset(args.train_dir, self.converter, args.batch_size)
+        self.val_ds = ImgDataset(args.val_dir, self.converter, args.batch_size, shuffle=False)
+        # Test images often have different size, so set batch_size to 1
+        self.test_ds = ImgDataset(args.test_dir, self.converter, shuffle=False, batch_size=1)
 
-    tf_utils.add_scalar_summary(writer, "train_edit_distance", edit_distance_mean,
-                                global_step)
+        self.num_batches = int(np.floor(self.tr_ds.size / args.batch_size))
 
+        self.model = CRNN(args, num_classes=self.converter.num_classes)
+        self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
-def train(args):
-    converter = LabelConverter(chars_file=args.chars_file)
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=15)
+        self.train_writer = tf.summary.FileWriter(args.log_dir, self.sess.graph)
 
-    logging.info('Load chars file: {} num_classes: {} + 1(CTC Black)'
-                 .format(args.chars_file, converter.num_classes - 1))
+        self.epoch_start_index = 0
+        self.batch_start_index = 0
 
-    tr_ds = ImgDataset(args.train_dir, converter, args.batch_size)
-    val_ds = ImgDataset(args.val_dir, converter, args.batch_size, shuffle=False)
-    # Test images often have different size, so set batch_size to 1
-    test_ds = ImgDataset(args.test_dir, converter, shuffle=False, batch_size=1)
-
-    model = CRNN(args, num_classes=converter.num_classes)
-
-    config = tf.ConfigProto(allow_soft_placement=True)
-    with tf.Session(config=config) as sess:
-        sess.run(tf.global_variables_initializer())
-
-        saver = tf.train.Saver(tf.global_variables(), max_to_keep=15)
-        train_writer = tf.summary.FileWriter(args.log_dir, sess.graph)
-
-        num_batches = int(np.floor(tr_ds.size / args.batch_size))
-
-        epoch_restored = 0
-        batch_start = 0
         if args.restore:
-            utils.restore_ckpt(sess, saver, args.ckpt_dir)
-            step_restored = sess.run(model.global_step)
-            epoch_restored = math.floor(step_restored / num_batches)
-            batch_start = step_restored % num_batches
+            self._restore()
 
-            logging.info("Restored global step: %d" % step_restored)
-            logging.info("Restored epoch: %d" % epoch_restored)
-            logging.info("Restored batch_start: %d" % batch_start)
+    def train(self):
+        self.sess.run(tf.global_variables_initializer())
 
-        assert batch_start < num_batches
+        print('Begin training...')
+        for epoch in range(self.epoch_start_index, self.args.num_epochs):
+            self.tr_ds.init_op.run()
 
-        logging.info('begin training...')
-        for epoch in range(epoch_restored, args.num_epochs):
-            sess.run(tr_ds.init_op)
-
-            for batch in range(batch_start, num_batches):
+            for batch in range(self.batch_start_index, self.num_batches):
                 batch_start_time = time.time()
 
-                img_batch, label_batch, (labels, _), _ = tr_ds.get_next_batch(sess)
-
-                feed = {model.inputs: img_batch,
-                        model.labels: label_batch,
-                        model.is_training: True}
-
-                fetches = [model.cost, model.global_step, model.train_op, model.lr]
-
-                if batch != 0 and (batch % args.step_write_summary == 0):
-                    fetches.append(model.merged_summay)
-                    batch_cost, global_step, _, lr, summary_str = sess.run(fetches, feed)
-                    train_writer.add_summary(summary_str, global_step)
-
-                    add_train_acc_summary(sess, model, converter, train_writer, img_batch, label_batch, labels,
-                                          global_step)
+                if batch != 0 and (batch % self.args.log_step == 0):
+                    batch_cost, global_step, lr = self._train_with_summary()
                 else:
-                    batch_cost, global_step, _, lr = sess.run(fetches, feed)
+                    batch_cost, global_step, lr = self._train()
 
                 print("epoch: {}, batch: {}/{}, step: {}, time: {:.02f}s, loss: {:.05}, lr: {:.05}"
-                      .format(epoch, batch, num_batches, global_step, time.time() - batch_start_time,
+                      .format(epoch, batch, self.num_batches, global_step, time.time() - batch_start_time,
                               batch_cost, lr))
 
-                if global_step != 0 and (global_step % args.val_step == 0):
-                    val_acc = do_val("val", sess, train_writer, model, val_ds, epoch, global_step)
-                    test_acc = do_val("test", sess, train_writer, model, test_ds, epoch, global_step)
-                    save_checkpoint(args.ckpt_dir, saver, sess, global_step, val_acc, test_acc)
+                if global_step != 0 and (global_step % self.args.val_step == 0):
+                    val_acc = self._do_val(self.val_ds, epoch, global_step, "val")
+                    test_acc = self._do_val(self.test_ds, epoch, global_step, "test")
+                    self._save_checkpoint(self.args.ckpt_dir, global_step, val_acc, test_acc)
 
-            batch_start = 0
+            self.batch_start_index = 0
 
+    def _restore(self):
+        utils.restore_ckpt(self.sess, self.saver, self.args.ckpt_dir)
 
-def save_checkpoint(ckpt_dir, saver, sess, step, val_acc, test_acc):
-    name = os.path.join(ckpt_dir, "crnn-{}-{:.03f}-{:.03f}".format(step, val_acc, test_acc))
-    logging.info("save checkpoint %s" % name)
-    saver.save(sess, name)
+        step_restored = self.sess.run(self.model.global_step)
 
+        self.epoch_start_index = math.floor(step_restored / self.num_batches)
+        self.batch_start_index = step_restored % self.num_batches
 
-def do_val(type, sess, writer, model, dataset, epoch, step):
-    """
-    :param type: val, test
-    :return: accuracy
-    """
-    logging.info("do %s..." % type)
-    accuracy, edit_distance_mean = validation(sess, model, dataset, type, global_step=step)
+        print("Restored global step: %d" % step_restored)
+        print("Restored epoch: %d" % self.epoch_start_index)
+        print("Restored batch_start_index: %d" % self.batch_start_index)
 
-    tf_utils.add_scalar_summary(writer, "%s_accuracy" % type, accuracy, step)
-    tf_utils.add_scalar_summary(writer, "%s_edit_distance" % type, edit_distance_mean, step)
+    def _train(self):
+        img_batch, label_batch, labels = self.tr_ds.get_next_batch(self.sess)
+        feed = {self.model.inputs: img_batch,
+                self.model.labels: label_batch,
+                self.model.is_training: True}
 
-    log = "epoch: {}/{}, %s accuracy = {:.3f}" % type
-    logging.info(log.format(epoch, args.num_epochs, accuracy))
-    return accuracy
+        fetches = [self.model.cost,
+                   self.model.global_step,
+                   self.model.lr,
+                   self.model.train_op]
 
+        batch_cost, global_step, lr, _ = self.sess.run(fetches, feed)
+        return batch_cost, global_step, lr
 
-def do_infer_on_batch(sess, model, converter, img_batch, label_batch, labels):
-    labels = list(map(lambda x: x.replace(" ", ""), labels))
+    def _train_with_summary(self):
+        img_batch, label_batch, labels = self.tr_ds.get_next_batch(self.sess)
+        feed = {self.model.inputs: img_batch,
+                self.model.labels: label_batch,
+                self.model.is_training: True}
 
-    decoded_predict_labels = []
-    decoded_target_labels = []
+        fetches = [self.model.cost,
+                   self.model.global_step,
+                   self.model.lr,
+                   self.model.merged_summay,
+                   self.model.dense_decoded,
+                   self.model.edit_distance,
+                   self.model.train_op]
 
-    val_feed = {model.inputs: img_batch,
-                model.labels: label_batch,
-                model.is_training: False}
+        batch_cost, global_step, lr, summary, predicts, edit_distance, _ = self.sess.run(fetches, feed)
+        self.train_writer.add_summary(summary, global_step)
 
-    merge_repeat = False
-    invalid_index = -1
-    predict_labels, edit_distances = sess.run([model.dense_decoded, model.edit_distance], val_feed)
-    edit_distances = edit_distances.tolist()
+        predicts = [self.converter.decode(p, CRNN.CTC_INVALID_INDEX) for p in predicts]
+        accuracy, _ = infer.calculate_accuracy(predicts, labels)
 
-    for i, p_label in enumerate(predict_labels):
-        p_label = converter.decode(p_label, invalid_index=invalid_index, merge_repeat=merge_repeat)
-        t_label = labels[i]
+        tf_utils.add_scalar_summary(self.train_writer, "train_accuracy", accuracy, global_step)
+        tf_utils.add_scalar_summary(self.train_writer, "train_edit_distance", edit_distance, global_step)
 
-        decoded_predict_labels.append(p_label)
-        decoded_target_labels.append(t_label)
+        return batch_cost, global_step, lr
 
-    return decoded_predict_labels, decoded_target_labels, edit_distances
+    def _do_val(self, dataset, epoch, step, name):
+        accuracy, edit_distance = infer.validation(self.sess, self.model, dataset, self.converter,
+                                                   step, self.args.result_dir, name)
 
+        tf_utils.add_scalar_summary(self.train_writer, "%s_accuracy" % name, accuracy, step)
+        tf_utils.add_scalar_summary(self.train_writer, "%s_edit_distance" % name, edit_distance, step)
 
-def analyze_edit_distances(edit_distances):
-    error_edit_distances = list(filter(lambda x: x != 0, edit_distances))
+        print("epoch: %d/%d, %s accuracy = %.3f" % (epoch, self.args.num_epochs, name, accuracy))
+        return accuracy
 
-    mean = 0
-    if len(error_edit_distances) != 0:
-        mean = np.mean(error_edit_distances)
-
-    correct_count = len(edit_distances) - len(error_edit_distances)
-    return mean, correct_count
-
-
-def validation(sess, model, dataset, sub_dir, global_step=None, name=""):
-    """
-    :param sub_dir: val, test, infer
-    :param log_batch_acc:
-    :param name: saved file name: name_{acc}_{step}_{decode_mode}.txt
-    :return:
-    """
-    dataset.init_op.run()
-    num_batches = int(math.ceil(dataset.size / dataset.batch_size))
-
-    decoded_predict_labels = []
-    decoded_target_labels = []
-    img_paths = []
-    edit_distances = []
-
-    for step in range(num_batches):
-        img_batch, label_batch, (labels, _), img_paths_batch = dataset.get_next_batch(sess)
-
-        batch_start_time = time.time()
-        batch_decoded_p_labels, batch_decoded_t_labels, batch_edit_distances = do_infer_on_batch(sess, model,
-                                                                                                 dataset.converter,
-                                                                                                 img_batch,
-                                                                                                 label_batch,
-                                                                                                 labels)
-        batch_end_time = time.time()
-
-        batch_edit_distances_mean, batch_correct_count = analyze_edit_distances(batch_edit_distances)
-
-        decoded_predict_labels += batch_decoded_p_labels
-        decoded_target_labels += batch_decoded_t_labels
-        img_paths += img_paths_batch
-        edit_distances += batch_edit_distances
-
-        logging.info(
-            "Batch [{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
-                .format(step,
-                        batch_end_time - batch_start_time,
-                        batch_correct_count / dataset.batch_size,
-                        batch_correct_count,
-                        dataset.batch_size,
-                        batch_edit_distances_mean))
-
-    edit_distance_mean, correct_count = analyze_edit_distances(edit_distances)
-
-    acc = correct_count / dataset.size
-
-    acc_str = "Accuracy: {:.03f} ({}/{}), Average edit distance: {:.03f}".format(acc, correct_count, dataset.size,
-                                                                                 edit_distance_mean)
-    logging.info(acc_str)
-
-    infer_result_file_path = get_save_file_path(acc, global_step, name, sub_dir)
-
-    logging.info("Write val result to {}...".format(infer_result_file_path))
-    with open(infer_result_file_path, 'w', encoding='utf-8') as f:
-        for i, p_label in enumerate(decoded_predict_labels):
-            t_label = decoded_target_labels[i]
-            f.write("{:08d}\n".format(i))
-            f.write("input:   {:17s} length: {}\n".format(t_label, len(t_label)))
-            f.write("predict: {:17s} length: {}\n".format(p_label, len(p_label)))
-            f.write("all match:  {}\n".format(1 if t_label == p_label else 0))
-            f.write("edit distance:  {}\n".format(edit_distances[i]))
-            f.write('-' * 30 + '\n')
-        f.write(acc_str + "\n")
-        f.write(utils.acc_under_edit_distances(edit_distances, 0.1) + "\n")
-        f.write(utils.acc_under_edit_distances(edit_distances, 0.2) + "\n")
-
-    # Save predict result as one file
-    predict_result_path = os.path.join(FLAGS.result_dir, sub_dir, "predict_result.txt")
-    logging.info("Write predict result to {}...".format(predict_result_path))
-    with open(predict_result_path, 'w', encoding='utf-8') as f:
-        for p_label in decoded_predict_labels:
-            f.write("{}\n".format(p_label))
-
-    return acc, edit_distance_mean
-
-
-def get_save_file_path(acc, global_step, name, sub_dir):
-    file_name = name + "_" if name else ""
-    file_name += "{:.03f}_{}".format(acc, FLAGS.decode_mode)
-    file_name += ("_%s.txt" % global_step if global_step else ".txt")
-    save_dir = os.path.join(FLAGS.result_dir, sub_dir)
-    utils.check_dir_exist(save_dir)
-    file_path = os.path.join(save_dir, file_name)
-    return file_path
-
-
-def cal_edit_distance(t_labels, p_labels):
-    edit_distances = []
-    for i, p_label in enumerate(p_labels):
-        t_label = t_labels[i]
-        edit_distances.append(algorithms.edit_distance(t_label, p_label))
-    return edit_distances
+    def _save_checkpoint(self, ckpt_dir, step, val_acc, test_acc):
+        name = os.path.join(ckpt_dir, "crnn-{}-{:.03f}-{:.03f}".format(step, val_acc, test_acc))
+        print("save checkpoint %s" % name)
+        self.saver.save(self.sess, name)
 
 
 def main():
     dev = '/gpu:0'
     args = parse_args()
     with tf.device(dev):
-        train(args)
+        trainer = Trainer(args)
+        trainer.train()
 
 
 if __name__ == '__main__':
