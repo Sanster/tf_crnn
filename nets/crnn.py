@@ -99,7 +99,7 @@ class CRNN(object):
         self.edit_distances = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.labels)
 
         non_zero_indices = tf.where(tf.not_equal(self.edit_distances, 0))
-        self.edit_distance = tf.resduce_mean(tf.gather(self.edit_distances, non_zero_indices))
+        self.edit_distance = tf.reduce_mean(tf.gather(self.edit_distances, non_zero_indices))
 
     def _LSTM_cell(self, num_proj=None):
         cell = tf.nn.rnn_cell.LSTMCell(num_units=self.FLAGS.num_hidden, num_proj=num_proj)
@@ -135,7 +135,5 @@ class CRNN(object):
 
         shape = tf.shape(inputs)
         outputs = tf.reshape(outputs, [shape[0], -1, num_out])
-
-        tf.nn.static_bidirectional_rnn()
 
         return outputs

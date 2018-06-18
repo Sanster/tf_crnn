@@ -19,3 +19,7 @@ or you can download pre-generated image from here []()
 python3 train.py
 ```
 
+## Inference
+```shell
+python3 infer.py
+```

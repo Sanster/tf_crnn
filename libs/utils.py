@@ -20,17 +20,6 @@ def load_chars(filepath):
     return ret
 
 
-def remove_symbols(labels):
-    symbol_path = '../data/chars/symbol.txt'
-    symbols = load_chars(symbol_path)
-    out = []
-    for l in labels:
-        fl = list(filter(lambda x: x not in symbols, l))
-        fl = ''.join(fl)
-        out.append(fl)
-    return out
-
-
 def load_labels(filepath, img_num=None):
     if not os.path.exists(filepath):
         print("Label file not exists. %s" % filepath)
