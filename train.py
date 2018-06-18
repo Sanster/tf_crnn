@@ -170,15 +170,9 @@ def do_infer_on_batch(sess, model, converter, img_batch, label_batch, labels):
                 model.is_training: False}
 
     merge_repeat = False
-    if FLAGS.decode_mode == 'ctc':
-        invalid_index = -1
-        predict_labels, edit_distances = sess.run([model.dense_decoded, model.edit_distance], val_feed)
-        edit_distances = edit_distances.tolist()
-    elif FLAGS.decode_mode == 'softmax':
-        invalid_index = model.num_classes - 1
-        merge_repeat = True
-        predict_labels = sess.run(model.predict_softmax, val_feed)
-        # edit_distances = cal_softmax_edit_distance(labels, predict_labels, invalid_index, converter)
+    invalid_index = -1
+    predict_labels, edit_distances = sess.run([model.dense_decoded, model.edit_distance], val_feed)
+    edit_distances = edit_distances.tolist()
 
     for i, p_label in enumerate(predict_labels):
         p_label = converter.decode(p_label, invalid_index=invalid_index, merge_repeat=merge_repeat)
@@ -186,14 +180,6 @@ def do_infer_on_batch(sess, model, converter, img_batch, label_batch, labels):
 
         decoded_predict_labels.append(p_label)
         decoded_target_labels.append(t_label)
-
-    if FLAGS.decode_mode == 'softmax':
-        edit_distances = cal_edit_distance(decoded_target_labels, decoded_predict_labels)
-
-    if FLAGS.infer_remove_symbol:
-        decoded_predict_labels = utils.remove_symbols(decoded_predict_labels)
-        decoded_target_labels = utils.remove_symbols(decoded_target_labels)
-        edit_distances = cal_edit_distance(decoded_target_labels, decoded_predict_labels)
 
     return decoded_predict_labels, decoded_target_labels, edit_distances
 
