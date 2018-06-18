@@ -20,7 +20,7 @@ logging = utils.logging
 
 
 def create_convert():
-    converter = LabelConverter(chars_filepath=FLAGS.chars_file)
+    converter = LabelConverter(chars_file=FLAGS.chars_file)
 
     logging.info(
         'Load chars file: {} num_classes: {} + 1(CTC Black)'.format(FLAGS.chars_file, converter.num_classes - 1))
@@ -143,7 +143,7 @@ def do_val(type, sess, writer, model, dataset, epoch, step):
 
 
 def infer(img_dir):
-    converter = LabelConverter(chars_filepath=FLAGS.chars_file)
+    converter = LabelConverter(chars_file=FLAGS.chars_file)
 
     logging.info("Loading val data...")
     dataset = create_img_dataset(converter, img_dir, shuffle=False, batch_size=FLAGS.batch_size)

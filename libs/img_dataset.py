@@ -29,11 +29,10 @@ import libs.utils as utils
 # noinspection PyMethodMayBeStatic
 class ImgDataset:
     """
-        Use tensorflow Dataset api to load image in parallel
+    Use tensorflow Dataset api to load images in parallel
     """
 
     def __init__(self, img_dir,
-                 img_count,
                  converter,
                  batch_size,
                  num_parallel_calls=4,
@@ -46,20 +45,11 @@ class ImgDataset:
         self.img_dir = img_dir
         self.shuffle = shuffle
 
-        label_filepath = os.path.join(img_dir, 'labels.txt')
-        labels = utils.load_labels(label_filepath, img_count)
-        if img_count is None:
-            img_paths = utils.get_img_paths(img_dir)
-            self.size = len(img_paths)
-        else:
-            img_paths = utils.build_img_paths(img_dir, img_count)
-            self.size = img_count
+        labels = utils.load_labels(os.path.join(img_dir, 'labels.txt'))
+        img_paths = utils.build_img_paths(img_dir, len(labels))
+        self.size = len(labels)
 
-        imgs = tf.convert_to_tensor(img_paths, dtype=dtypes.string)
-        labels = tf.convert_to_tensor(labels, dtype=dtypes.string)
-
-        dataset = self._create_dataset(imgs, labels)
-
+        dataset = self._create_dataset(img_paths, labels)
         iterator = tf.data.Iterator.from_structure(dataset.output_types,
                                                    dataset.output_shapes)
         self.next_batch = iterator.get_next()
@@ -68,14 +58,17 @@ class ImgDataset:
     def get_next_batch(self, sess):
         """return images and labels of a batch"""
         img_batch, labels, img_paths = sess.run(self.next_batch)
-        img_paths = list(map(lambda x: x.decode(), img_paths))
-        labels = list(map(lambda x: x.decode(), labels))
+        img_paths = [p.decoded() for p in img_paths]
+        labels = [l.decoded() for l in labels]
 
         encoded_label_batch = self.converter.encode_list(labels)
         sparse_label_batch = utils.sparse_tuple_from_label(encoded_label_batch)
-        return img_batch, sparse_label_batch, (labels, encoded_label_batch), list(img_paths)
+        return img_batch, sparse_label_batch, (labels, encoded_label_batch), img_paths
 
     def _create_dataset(self, img_paths, labels):
+        img_paths = tf.convert_to_tensor(img_paths, dtype=dtypes.string)
+        labels = tf.convert_to_tensor(labels, dtype=dtypes.string)
+
         d = tf.data.Dataset.from_tensor_slices((img_paths, labels))
         if self.shuffle:
             d = d.shuffle(buffer_size=self.size)
@@ -88,55 +81,13 @@ class ImgDataset:
         return d
 
     def _input_parser(self, img_path, label):
-
-        # 读取二值化加载到内存
         img_file = tf.read_file(img_path)
 
         img_decoded = tf.image.decode_image(img_file, channels=self.img_channels)
         if self.img_channels == 3:
-            # 转到 gray 以后，channel 变成 1
             img_decoded = tf.image.rgb_to_grayscale(img_decoded)
 
         img_decoded = tf.cast(img_decoded, tf.float32)
         img_decoded = (img_decoded - 128.0) / 128.0
-        # 加载到内存后删除文件
-        # os.remove(new_file_path)
 
         return img_decoded, label, img_path
-
-
-if __name__ == '__main__':
-    from libs.label_converter import LabelConverter
-
-    converter = LabelConverter('../data/common_chinese_words.txt')
-    # ds = ImgDataset('../data/train_10', converter, 64)
-    # with tf.Session() as sess:
-    #     tf.set_random_seed(1)
-    #     ds.init_op.run()
-    #     img_batch, label_batch, (ori_labels, encoded_labels) = ds.get_next_batch(sess)
-    #     print(len(img_batch))
-    #     print(encoded_labels)
-    #     print(ori_labels)
-    #     decoded_labels = converter.decode_list(encoded_labels)
-    #     print(decoded_labels)
-    #
-    #     for i, decoded_label in enumerate(decoded_labels):
-    #         l = ''.join(decoded_label)
-    #         assert l == ori_labels[i]
-
-    ds = ImgDataset('../data/test', converter, 1)
-
-    import numpy as np
-    import cv2
-
-    im = cv2.imdecode(np.fromfile('../data/test/0001_测试.jpg', dtype=np.uint8), -1)
-    im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    im = (im.astype(np.float32) - 128.) / 128.
-
-    # opencv 的灰度图与 tensoflow 的灰度图有区别
-    with tf.Session() as sess:
-        ds.init_op.run()
-        img_batch, label_batch, (ori_labels, encoded_labels), _ = ds.get_next_batch(sess)
-        img = img_batch[0][:, :, 0]
-        diff = img - im
-        print(diff)

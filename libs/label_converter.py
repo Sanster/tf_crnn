@@ -5,8 +5,8 @@ from libs.utils import load_chars
 
 
 class LabelConverter:
-    def __init__(self, chars_filepath):
-        self.chars = ''.join(load_chars(chars_filepath))
+    def __init__(self, chars_file):
+        self.chars = ''.join(load_chars(chars_file))
         # char_set_length + ctc_blank
         self.num_classes = len(self.chars) + 1
 
@@ -37,8 +37,11 @@ class LabelConverter:
             encoded_labels.append(self.encode(label))
         return encoded_labels
 
-    def merge_repeat(self, encoded_label, invalid_index, merge_repeat):
-        label_filtered = []
+    def decode(self, encoded_label, invalid_index):
+        """
+        :param encoded_label result of ctc_greedy_decoder
+        :param invalid_index ctc空白符的索引
+        """
         for index, char_index in enumerate(encoded_label):
             if char_index != invalid_index:
                 if not merge_repeat:
@@ -46,14 +49,6 @@ class LabelConverter:
                 else:
                     if index > 0 and char_index != encoded_label[index - 1]:
                         label_filtered.append(char_index)
-        return label_filtered
-
-    def decode(self, encoded_label, invalid_index, merge_repeat):
-        """
-        :param invalid_index ctc空白符的索引
-        :param merge_repeat 是否合并重复字符，对于 softmax 解码来说需要，对于 beam_search 解码来说不需要
-        """
-        label_filtered = self.merge_repeat(encoded_label, invalid_index, merge_repeat)
 
         label = [self.decode_maps[c] for c in label_filtered]
         return ''.join(label).strip()

@@ -7,32 +7,14 @@ import numpy as np
 import tensorflow as tf
 
 import libs.utils as utils
-from nets.crnn import CRNN
-from libs.label_converter import LabelConverter
-from parse_args import FLAGS
+from libs.utils import logging
+import libs.tf_utils as tf_utils
 from libs.img_dataset import ImgDataset
+from libs.label_converter import LabelConverter
 import libs.algorithms as algorithms
 
-import libs.tf_utils as tf_utils
-
-logging = utils.logging
-
-
-def create_convert():
-    converter = LabelConverter(chars_filepath=FLAGS.chars_file)
-
-    logging.info(
-        'Load chars file: {} num_classes: {} + 1(CTC Black)'.format(FLAGS.chars_file, converter.num_classes - 1))
-    return converter, converter.num_classes
-
-
-def create_img_dataset(converter, img_dir, img_count=None, shuffle=True, batch_size=FLAGS.batch_size):
-    return ImgDataset(img_dir, img_count, converter, batch_size, shuffle=shuffle)
-
-
-def create_model(num_classes):
-    model = CRNN(FLAGS, num_classes=num_classes)
-    return model
+from nets.crnn import CRNN
+from parse_args import parse_args
 
 
 def add_train_acc_summary(sess, model, converter, writer, img_batch, label_batch, labels, global_step):
@@ -41,49 +23,51 @@ def add_train_acc_summary(sess, model, converter, writer, img_batch, label_batch
 
     edit_distance_mean, correct_count = analyze_edit_distances(edit_distances)
 
-    utils.tf_add_scalar_summary(writer, "train_accuracy", correct_count / len(img_batch),
+    tf_utils.add_scalar_summary(writer, "train_accuracy", correct_count / len(img_batch),
                                 global_step)
 
-    utils.tf_add_scalar_summary(writer, "train_edit_distance", edit_distance_mean,
+    tf_utils.add_scalar_summary(writer, "train_edit_distance", edit_distance_mean,
                                 global_step)
 
 
-def train():
-    converter, num_classes = create_convert()
+def train(args):
+    converter = LabelConverter(chars_file=args.chars_file)
 
-    tr_ds = create_img_dataset(converter, FLAGS.train_dir, FLAGS.num_train)
-    val_ds = create_img_dataset(converter, FLAGS.val_dir, shuffle=False)
-    test_ds = create_img_dataset(converter, FLAGS.test_dir, shuffle=False, batch_size=1)
+    logging.info('Load chars file: {} num_classes: {} + 1(CTC Black)'
+                 .format(args.chars_file, converter.num_classes - 1))
 
-    model = create_model(num_classes)
+    tr_ds = ImgDataset(args.train_dir, converter, args.batch_size)
+    val_ds = ImgDataset(args.val_dir, converter, args.batch_size, shuffle=False)
+    # Test images often have different size, so set batch_size to 1
+    test_ds = ImgDataset(args.test_dir, converter, shuffle=False, batch_size=1)
 
-    # 有些 Op 不能在 GPU 上运行，自动使用 CPU 运行
+    model = CRNN(args, num_classes=converter.num_classes)
+
     config = tf.ConfigProto(allow_soft_placement=True)
-
     with tf.Session(config=config) as sess:
         sess.run(tf.global_variables_initializer())
 
         saver = tf.train.Saver(tf.global_variables(), max_to_keep=15)
-        train_writer = tf.summary.FileWriter(FLAGS.log_dir, sess.graph)
+        train_writer = tf.summary.FileWriter(args.log_dir, sess.graph)
 
-        num_batches = int(np.floor(tr_ds.size / FLAGS.batch_size))
+        num_batches = int(np.floor(tr_ds.size / args.batch_size))
 
         epoch_restored = 0
         batch_start = 0
-        if FLAGS.restore:
-            utils.restore_ckpt(sess, saver, FLAGS.checkpoint_dir)
+        if args.restore:
+            utils.restore_ckpt(sess, saver, args.ckpt_dir)
             step_restored = sess.run(model.global_step)
             epoch_restored = math.floor(step_restored / num_batches)
             batch_start = step_restored % num_batches
 
-            print("Restored global step: %d" % step_restored)
-            print("Restored epoch: %d" % epoch_restored)
-            print("Restored batch_start: %d" % batch_start)
+            logging.info("Restored global step: %d" % step_restored)
+            logging.info("Restored epoch: %d" % epoch_restored)
+            logging.info("Restored batch_start: %d" % batch_start)
 
         assert batch_start < num_batches
 
         logging.info('begin training...')
-        for epoch in range(epoch_restored, FLAGS.num_epochs):
+        for epoch in range(epoch_restored, args.num_epochs):
             sess.run(tr_ds.init_op)
 
             for batch in range(batch_start, num_batches):
@@ -97,7 +81,7 @@ def train():
 
                 fetches = [model.cost, model.global_step, model.train_op, model.lr]
 
-                if batch != 0 and (batch % FLAGS.step_write_summary == 0):
+                if batch != 0 and (batch % args.step_write_summary == 0):
                     fetches.append(model.merged_summay)
                     batch_cost, global_step, _, lr, summary_str = sess.run(fetches, feed)
                     train_writer.add_summary(summary_str, global_step)
@@ -111,17 +95,17 @@ def train():
                       .format(epoch, batch, num_batches, global_step, time.time() - batch_start_time,
                               batch_cost, lr))
 
-                if global_step != 0 and (global_step % FLAGS.step_do_val == 0):
+                if global_step != 0 and (global_step % args.val_step == 0):
                     val_acc = do_val("val", sess, train_writer, model, val_ds, epoch, global_step)
                     test_acc = do_val("test", sess, train_writer, model, test_ds, epoch, global_step)
-                    save_checkpoint(saver, sess, global_step, val_acc, test_acc)
+                    save_checkpoint(args.ckpt_dir, saver, sess, global_step, val_acc, test_acc)
 
             batch_start = 0
 
 
-def save_checkpoint(saver, sess, step, val_acc, test_acc):
-    logging.info("save the checkpoint {0}".format(step))
-    name = os.path.join(FLAGS.checkpoint_dir, "crnn-{}-{:.03f}-{:.03f}".format(step, val_acc, test_acc))
+def save_checkpoint(ckpt_dir, saver, sess, step, val_acc, test_acc):
+    name = os.path.join(ckpt_dir, "crnn-{}-{:.03f}-{:.03f}".format(step, val_acc, test_acc))
+    logging.info("save checkpoint %s" % name)
     saver.save(sess, name)
 
 
@@ -133,33 +117,15 @@ def do_val(type, sess, writer, model, dataset, epoch, step):
     logging.info("do %s..." % type)
     accuracy, edit_distance_mean = validation(sess, model, dataset, type, global_step=step)
 
-    utils.tf_add_scalar_summary(writer, "%s_accuracy" % type, accuracy, step)
-    utils.tf_add_scalar_summary(writer, "%s_edit_distance" % type, edit_distance_mean, step)
+    tf_utils.add_scalar_summary(writer, "%s_accuracy" % type, accuracy, step)
+    tf_utils.add_scalar_summary(writer, "%s_edit_distance" % type, edit_distance_mean, step)
 
     log = "epoch: {}/{}, %s accuracy = {:.3f}" % type
-    logging.info(log.format(epoch, FLAGS.num_epochs, accuracy))
+    logging.info(log.format(epoch, args.num_epochs, accuracy))
     return accuracy
 
 
-def infer(img_dir):
-    converter = LabelConverter(chars_filepath=FLAGS.chars_file)
-
-    logging.info("Loading val data...")
-    dataset = create_img_dataset(converter, img_dir, shuffle=False, batch_size=FLAGS.batch_size)
-    logging.info("Loading finish...")
-
-    model = CRNN(FLAGS, num_classes=converter.num_classes)
-
-    saver = tf.train.Saver(tf.global_variables())
-    config = tf.ConfigProto(allow_soft_placement=True)
-    with tf.Session(config=config) as sess:
-        utils.restore_ckpt(sess, saver, FLAGS.checkpoint_dir)
-        infer_dir_name = FLAGS.infer_dir.split('/')[-1]
-        validation(sess, model, dataset, "infer", name=infer_dir_name, log_batch_acc=True)
-
-
 def do_infer_on_batch(sess, model, converter, img_batch, label_batch, labels):
-    # TODO: remove this, if add <space> in charset
     labels = list(map(lambda x: x.replace(" ", ""), labels))
 
     decoded_predict_labels = []
@@ -195,7 +161,7 @@ def analyze_edit_distances(edit_distances):
     return mean, correct_count
 
 
-def validation(sess, model, dataset, sub_dir, global_step=None, log_batch_acc=False, name=""):
+def validation(sess, model, dataset, sub_dir, global_step=None, name=""):
     """
     :param sub_dir: val, test, infer
     :param log_batch_acc:
@@ -228,15 +194,14 @@ def validation(sess, model, dataset, sub_dir, global_step=None, log_batch_acc=Fa
         img_paths += img_paths_batch
         edit_distances += batch_edit_distances
 
-        if log_batch_acc:
-            logging.info(
-                "Batch [{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
-                    .format(step,
-                            batch_end_time - batch_start_time,
-                            batch_correct_count / dataset.batch_size,
-                            batch_correct_count,
-                            dataset.batch_size,
-                            batch_edit_distances_mean))
+        logging.info(
+            "Batch [{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
+                .format(step,
+                        batch_end_time - batch_start_time,
+                        batch_correct_count / dataset.batch_size,
+                        batch_correct_count,
+                        dataset.batch_size,
+                        batch_edit_distances_mean))
 
     edit_distance_mean, correct_count = analyze_edit_distances(edit_distances)
 
@@ -269,35 +234,6 @@ def validation(sess, model, dataset, sub_dir, global_step=None, log_batch_acc=Fa
         for p_label in decoded_predict_labels:
             f.write("{}\n".format(p_label))
 
-    # Copy image not all match to a dir
-    if FLAGS.mode == 'infer' and FLAGS.infer_copy_failed:
-        failed_infer_img_dir = infer_result_file_path[:-4] + "_failed"
-        if os.path.exists(failed_infer_img_dir) and os.path.isdir(failed_infer_img_dir):
-            shutil.rmtree(failed_infer_img_dir)
-
-        utils.check_dir_exist(failed_infer_img_dir)
-
-        failed_image_indices = []
-        for i, val in enumerate(edit_distances):
-            if val != 0:
-                failed_image_indices.append(i)
-
-        for i in failed_image_indices:
-            img_path = img_paths[i]
-            img_name = img_path.split("/")[-1]
-            dst_path = os.path.join(failed_infer_img_dir, img_name)
-            shutil.copyfile(img_path, dst_path)
-
-        failed_infer_result_file_path = os.path.join(failed_infer_img_dir, "result.txt")
-        with open(failed_infer_result_file_path, 'w', encoding='utf-8') as f:
-            for i in failed_image_indices:
-                p_label = decoded_predict_labels[i]
-                t_label = decoded_target_labels[i]
-                f.write("{:08d}\n".format(i))
-                f.write("input:   {:17s} length: {}\n".format(t_label, len(t_label)))
-                f.write("predict: {:17s} length: {}\n".format(p_label, len(p_label)))
-                f.write('-' * 30 + '\n')
-
     return acc, edit_distance_mean
 
 
@@ -319,32 +255,12 @@ def cal_edit_distance(t_labels, p_labels):
     return edit_distances
 
 
-def main(_):
-    if FLAGS.num_gpus == 0:
-        dev = '/cpu:0'
-    elif FLAGS.num_gpus == 1:
-        dev = '/gpu:0'
-    else:
-        raise ValueError('Only support 0 or 1 gpu.')
-
-    FLAGS.checkpoint_dir = os.path.join(FLAGS.checkpoint_dir, FLAGS.tag)
-    FLAGS.log_dir = os.path.join(FLAGS.log_dir, FLAGS.tag)
-    FLAGS.result_dir = os.path.join(FLAGS.result_dir, FLAGS.tag)
-
-    utils.check_dir_exist(FLAGS.checkpoint_dir)
-    utils.check_dir_exist(FLAGS.log_dir)
-    utils.check_dir_exist(FLAGS.result_dir)
-
+def main():
+    dev = '/gpu:0'
+    args = parse_args()
     with tf.device(dev):
-        if FLAGS.mode == 'train':
-            flags_dir = os.path.join(FLAGS.checkpoint_dir, "flags")
-            tf_utils.save_flags(FLAGS, flags_dir)
-            train()
-
-        elif FLAGS.mode == 'infer':
-            infer(FLAGS.infer_dir)
+        train(args)
 
 
 if __name__ == '__main__':
-    tf.logging.set_verbosity(tf.logging.INFO)
-    tf.app.run()
+    main()

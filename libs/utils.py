@@ -5,7 +5,7 @@ import cv2
 import logging
 from functools import reduce
 
-logging.basicConfig(format='%(levelname)s %(asctime)s: %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO)
 
 
 def load_chars(filepath):
@@ -46,8 +46,8 @@ def load_labels(filepath, img_num=None):
         labels = labels[0:img_num]
 
     # 移除换行符、首尾空格
-    labels = map(lambda l: l[:-1].strip(), labels)
-    return list(labels)
+    labels = [l[:-1].strip() for l in labels]
+    return labels
 
 
 # https://stackoverflow.com/questions/49063938/padding-labels-for-tensorflow-ctc-loss
@@ -127,10 +127,6 @@ def count_tf_params():
     return n
 
 
-def tf_add_scalar_summary(writer, tag, val, step):
-    summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=val)])
-    writer.add_summary(summary, step)
-
 
 def get_img_paths_and_labels(img_dir):
     """label 位于文件名中"""
@@ -187,27 +183,13 @@ def get_img_paths_and_label_paths(img_dir, img_count):
 
 def build_img_paths(img_dir, img_count):
     """
-    根据图片的总数量返回连续的图片路径
+    Image name should be eight length with continue num. e.g. 00000000.jpg, 00000001.jgp
     """
     img_paths = []
     for i in range(img_count):
         base_name = "{:08d}".format(i)
         img_path = os.path.join(img_dir, base_name + ".jpg")
         img_paths.append(img_path)
-
-    return img_paths
-
-
-def get_img_paths(img_dir):
-    """
-    遍历图片文件夹获得图片路径
-    """
-    img_paths = []
-    for root, sub_folder, file_list in os.walk(img_dir):
-        for file_name in sorted(file_list):
-            if file_name.endswith('.jpg'):
-                img_path = os.path.join(img_dir, file_name)
-                img_paths.append(img_path)
 
     return img_paths
 
