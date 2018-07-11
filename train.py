@@ -2,8 +2,13 @@ import os
 import time
 import math
 
+RNG_SEED = 42
 import numpy as np
+
+np.random.seed(RNG_SEED)
 import tensorflow as tf
+
+tf.set_random_seed(RNG_SEED)
 
 import libs.utils as utils
 import libs.tf_utils as tf_utils
