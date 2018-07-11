@@ -73,6 +73,7 @@ class CRNN(object):
         # inputs shape: [max_time, batch_size, num_classes]`
         self.ctc_loss = tf.nn.ctc_loss(labels=self.labels,
                                        inputs=self.logits,
+                                       ignore_longer_outputs_than_inputs=True,
                                        sequence_length=self.seq_len)
         self.cost = tf.reduce_mean(self.ctc_loss)
         tf.summary.scalar('ctc_loss', self.cost)
