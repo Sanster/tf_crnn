@@ -39,10 +39,9 @@ class SqueezeNet(object):
                     reuse=None,
                     scope=None):
         with tf.variable_scope(scope, 'fire', [inputs], reuse=reuse):
-            with slim.arg_scope([slim.conv2d, slim.max_pool2d]):
-                net = self.squeeze(inputs, squeeze_depth)
-                outputs = self.expand(net, expand_depth)
-                return outputs
+            net = self.squeeze(inputs, squeeze_depth)
+            outputs = self.expand(net, expand_depth)
+            return outputs
 
     def squeeze(self, inputs, num_outputs):
         return slim.conv2d(inputs, num_outputs, [1, 1], stride=1, scope='Conv_squeeze')
@@ -61,10 +60,10 @@ class SqueezeNet(object):
             # Decay for the moving averages.
             'decay': 0.995,
             # epsilon to prevent 0s in variance.
-            'epsilon': 0.001
+            'epsilon': 0.00001
         }
 
-        with slim.arg_scope([slim.conv2d, slim.fully_connected],
+        with slim.arg_scope([slim.conv2d],
                             weights_initializer=slim.xavier_initializer_conv2d(uniform=True),
                             weights_regularizer=slim.l2_regularizer(weight_decay),
                             normalizer_fn=slim.batch_norm,

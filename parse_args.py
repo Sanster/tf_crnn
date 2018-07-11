@@ -79,6 +79,8 @@ def parse_args():
 
     save_flags(args, args.flags_fir)
 
+    print('Use %s as base net' % args.cnn)
+
     return args
 
 

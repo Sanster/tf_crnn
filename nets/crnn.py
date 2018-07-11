@@ -147,7 +147,7 @@ class CRNN(object):
         outputs = tf.concat(outputs, 2)
         outputs = tf.reshape(outputs, [-1, self.FLAGS.rnn_num_units * 2])
 
-        outputs = slim.fully_connected(outputs, num_out)
+        outputs = slim.fully_connected(outputs, num_out, activation_fn=None)
 
         shape = tf.shape(inputs)
         outputs = tf.reshape(outputs, [shape[0], -1, num_out])
