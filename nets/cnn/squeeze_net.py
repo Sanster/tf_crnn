@@ -32,7 +32,6 @@ class SqueezeNet(object):
 
         self.end_points = utils.convert_collection_to_dict(end_points_collection)
         self.net = net
-        self.output_channels = 256 * 2
 
     def fire_module(self, inputs,
                     squeeze_depth,

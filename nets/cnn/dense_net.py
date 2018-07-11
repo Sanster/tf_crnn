@@ -85,7 +85,6 @@ class DenseNet(object):
 
                 self.end_points = utils.convert_collection_to_dict(end_points_collection)
                 self.net = net
-                self.output_channels = num_channels
 
     def dense_block(self, inputs, num_channels):
         net = slim.repeat(inputs, self.params.layers_per_block, self.block_inner_layer)

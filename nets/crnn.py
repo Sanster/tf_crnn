@@ -2,6 +2,8 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 from nets.cnn.paper_cnn import PaperCNN
+from nets.cnn.dense_net import DenseNet
+from nets.cnn.squeeze_net import SqueezeNet
 
 
 class CRNN(object):
@@ -25,7 +27,14 @@ class CRNN(object):
         self.merged_summay = tf.summary.merge_all()
 
     def _build_model(self):
-        cnn_out = PaperCNN(self.inputs, self.is_training)
+        if self.FLAGS.cnn == 'raw':
+            cnn_out = PaperCNN(self.inputs, self.is_training)
+        elif self.FLAGS.cnn == 'dense':
+            net = DenseNet(self.inputs, self.is_training)
+            cnn_out = net.net
+        elif self.FLAGS.cnn == 'squeeze':
+            net = SqueezeNet(self.inputs, self.is_training)
+            cnn_out = net.net
 
         cnn_output_shape = tf.shape(cnn_out)
         batch_size = cnn_output_shape[0]
@@ -36,7 +45,8 @@ class CRNN(object):
         # Get seq_len according to cnn output, so we don't need to input this as a placeholder
         self.seq_len = tf.ones([batch_size], tf.int32) * cnn_output_w
 
-        lstm_inputs = tf.reshape(cnn_out, [-1, cnn_output_h * cnn_output_w, cnn_output_channel])
+        # Reshape to the shape lstm need. [batch_size, max_time, ..]
+        lstm_inputs = tf.reshape(cnn_out, [-1, cnn_output_w, cnn_output_h * cnn_output_channel])
 
         with tf.variable_scope('bilstm1'):
             bilstm = self._bidirectional_LSTM(lstm_inputs, self.FLAGS.num_hidden)

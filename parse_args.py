@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument('--test_dir', default=None, help='Directory store test images and labels')
 
     # Hyper parameters
+    parser.add_argument('--cnn', default='raw', choices=['raw', 'squeeze', 'dense'])
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--lr', type=float, default=0.01, help='Initial learning rate')
     parser.add_argument('--optimizer', default='adadelate', choices=['adadelate', 'adam', 'rms'])
