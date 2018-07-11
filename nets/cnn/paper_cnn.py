@@ -14,6 +14,12 @@ class PaperCNN(object):
         Net structure described in crnn paper
         feature_maps = [64, 128, 256, 256, 512, 512, 512]
         """
+        norm_params = {
+            'is_training': is_training,
+            'decay': 0.9,
+            'epsilon': 1e-05
+        }
+
         with tf.variable_scope(self._scope, self._scope, [inputs]) as sc:
             end_points_collection = sc.name + '_end_points'
 
@@ -26,11 +32,9 @@ class PaperCNN(object):
                 net = slim.conv2d(net, 256, 3, scope='conv3')
                 net = slim.conv2d(net, 256, 3, scope='conv4')
                 net = slim.max_pool2d(net, 2, [2, 1], scope='pool3')
-                net = slim.conv2d(net, 512, 3, normalizer_fn=slim.batch_norm,
-                                  normalizer_params={'is_training': is_training},
+                net = slim.conv2d(net, 512, 3, normalizer_fn=slim.batch_norm, normalizer_params=norm_params,
                                   scope='conv5')
-                net = slim.conv2d(net, 512, 3, normalizer_fn=slim.batch_norm,
-                                  normalizer_params={'is_training': is_training},
+                net = slim.conv2d(net, 512, 3, normalizer_fn=slim.batch_norm, normalizer_params=norm_params,
                                   scope='conv6')
                 net = slim.max_pool2d(net, 2, [2, 1], scope='pool4')
                 net = slim.conv2d(net, 512, 2, padding='VALID', scope='conv7')
