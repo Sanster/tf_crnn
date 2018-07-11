@@ -67,9 +67,10 @@ def check_dir_exist(dir):
 def restore_ckpt(sess, saver, checkpoint_dir):
     ckpt = tf.train.latest_checkpoint(checkpoint_dir)
     try:
-        saver._restore(sess, ckpt)
+        saver.restore(sess, ckpt)
         print('Restore from {}'.format(ckpt))
-    except Exception:
+    except Exception as e:
+        print(e)
         print("Can not restore from {}".format(checkpoint_dir))
         exit(-1)
 
