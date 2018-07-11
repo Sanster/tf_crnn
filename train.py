@@ -27,9 +27,17 @@ class Trainer(object):
         self.converter = LabelConverter(chars_file=args.chars_file)
 
         self.tr_ds = ImgDataset(args.train_dir, self.converter, args.batch_size)
-        self.val_ds = ImgDataset(args.val_dir, self.converter, args.batch_size, shuffle=False)
-        # Test images often have different size, so set batch_size to 1
-        self.test_ds = ImgDataset(args.test_dir, self.converter, shuffle=False, batch_size=1)
+
+        if args.val_dir is None:
+            self.val_ds = None
+        else:
+            self.val_ds = ImgDataset(args.val_dir, self.converter, args.batch_size, shuffle=False)
+
+        if args.test_dir is None:
+            self.test_ds = None
+        else:
+            # Test images often have different size, so set batch_size to 1
+            self.test_ds = ImgDataset(args.test_dir, self.converter, shuffle=False, batch_size=1)
 
         self.num_batches = int(np.floor(self.tr_ds.size / args.batch_size))
 
@@ -123,6 +131,9 @@ class Trainer(object):
         return batch_cost, global_step, lr
 
     def _do_val(self, dataset, epoch, step, name):
+        if dataset is None:
+            return None
+
         accuracy, edit_distance = infer.validation(self.sess, self.model, dataset, self.converter,
                                                    step, self.args.result_dir, name)
 
@@ -132,8 +143,14 @@ class Trainer(object):
         print("epoch: %d/%d, %s accuracy = %.3f" % (epoch, self.args.num_epochs, name, accuracy))
         return accuracy
 
-    def _save_checkpoint(self, ckpt_dir, step, val_acc, test_acc):
-        name = os.path.join(ckpt_dir, "crnn-{}-{:.03f}-{:.03f}".format(step, val_acc, test_acc))
+    def _save_checkpoint(self, ckpt_dir, step, val_acc=None, test_acc=None):
+        ckpt_name = "crnn_%d" % step
+        if val_acc is not None:
+            ckpt_name += '_val_%.03f' % val_acc
+        if test_acc is not None:
+            ckpt_name += '_test_%.03f' % test_acc
+
+        name = os.path.join(ckpt_dir, ckpt_name)
         print("save checkpoint %s" % name)
         self.saver.save(self.sess, name)
 

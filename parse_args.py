@@ -41,8 +41,8 @@ def parse_args():
     parser.add_argument('--log_step', type=int, default=100, help='Steps save tensorflow summary')
 
     parser.add_argument('--train_dir', default='', help='Directory store training images and labels')
-    parser.add_argument('--val_dir', default='', help='Directory store validation images and labels')
-    parser.add_argument('--test_dir', default='', help='Directory store test images and labels')
+    parser.add_argument('--val_dir', default=None, help='Directory store validation images and labels')
+    parser.add_argument('--test_dir', default=None, help='Directory store test images and labels')
 
     # Hyper parameters
     parser.add_argument('--batch_size', type=int, default=128)
@@ -57,10 +57,10 @@ def parse_args():
     if not os.path.exists(args.train_dir):
         parser.error('train_dir not exist')
 
-    if not os.path.exists(args.val_dir):
+    if (args.val_dir is not None) and (not os.path.exists(args.val_dir)):
         parser.error('val_dir not exist')
 
-    if not os.path.exists(args.test_dir):
+    if (args.test_dir is not None) and (not os.path.exists(args.test_dir)):
         parser.error('test_dir not exist')
 
     args.ckpt_dir = os.path.join(args.ckpt_dir, args.tag)
