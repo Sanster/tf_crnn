@@ -44,7 +44,7 @@ class Trainer(object):
         self.model = CRNN(args, num_classes=self.converter.num_classes)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
-        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=15)
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=8)
         self.train_writer = tf.summary.FileWriter(args.log_dir, self.sess.graph)
 
         self.epoch_start_index = 0
