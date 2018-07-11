@@ -57,8 +57,8 @@ class Trainer(object):
         self.sess.run(tf.global_variables_initializer())
 
         print('Begin training...')
-        for epoch in range(self.epoch_start_index, self.args.num_epochs):
-            self.tr_ds.init_op.run()
+        for epoch in range(self.epoch_start_index, self.args.epochs):
+            self.sess.run(self.tr_ds.init_op)
 
             for batch in range(self.batch_start_index, self.num_batches):
                 batch_start_time = time.time()
@@ -140,7 +140,7 @@ class Trainer(object):
         tf_utils.add_scalar_summary(self.train_writer, "%s_accuracy" % name, accuracy, step)
         tf_utils.add_scalar_summary(self.train_writer, "%s_edit_distance" % name, edit_distance, step)
 
-        print("epoch: %d/%d, %s accuracy = %.3f" % (epoch, self.args.num_epochs, name, accuracy))
+        print("epoch: %d/%d, %s accuracy = %.3f" % (epoch, self.args.epochs, name, accuracy))
         return accuracy
 
     def _save_checkpoint(self, ckpt_dir, step, val_acc=None, test_acc=None):

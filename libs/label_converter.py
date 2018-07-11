@@ -15,7 +15,7 @@ class LabelConverter:
 
         self.create_encode_decode_maps(self.chars)
 
-        print('Load chars file: %d num_classes: %d + 1(CTC Black)' % (chars_file, self.num_classes - 1))
+        print('Load chars file: %s num_classes: %d + 1(CTC Black)' % (chars_file, self.num_classes - 1))
 
     def create_encode_decode_maps(self, chars):
         for i, char in enumerate(chars):

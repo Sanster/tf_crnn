@@ -28,15 +28,17 @@ class CRNN(object):
 
     def _build_model(self):
         if self.FLAGS.cnn == 'raw':
-            cnn_out = PaperCNN(self.inputs, self.is_training)
+            net = PaperCNN(self.inputs, self.is_training)
         elif self.FLAGS.cnn == 'dense':
             net = DenseNet(self.inputs, self.is_training)
-            cnn_out = net.net
         elif self.FLAGS.cnn == 'squeeze':
             net = SqueezeNet(self.inputs, self.is_training)
-            cnn_out = net.net
 
+        # tf.reshape() vs Tensor.set_shape(): https://stackoverflow.com/questions/35451948/clarification-on-tf-tensor-set-shape
+        # tf.shape() vs Tensor.get_shape(): https://stackoverflow.com/questions/37096225/how-to-understand-static-shape-and-dynamic-shape-in-tensorflow
+        cnn_out = net.net
         cnn_output_shape = tf.shape(cnn_out)
+
         batch_size = cnn_output_shape[0]
         cnn_output_h = cnn_output_shape[1]
         cnn_output_w = cnn_output_shape[2]
@@ -45,11 +47,15 @@ class CRNN(object):
         # Get seq_len according to cnn output, so we don't need to input this as a placeholder
         self.seq_len = tf.ones([batch_size], tf.int32) * cnn_output_w
 
-        # Reshape to the shape lstm need. [batch_size, max_time, ..]
-        lstm_inputs = tf.reshape(cnn_out, [-1, cnn_output_w, cnn_output_h * cnn_output_channel])
+        # Reshape to the shape lstm needed. [batch_size, max_time, ..]
+        cnn_out_transposed = tf.transpose(cnn_out, [0, 2, 1, 3])
+        cnn_out_reshaped = tf.reshape(cnn_out_transposed, [batch_size, cnn_output_w, cnn_output_h * cnn_output_channel])
+
+        cnn_shape = cnn_out.get_shape().as_list()
+        cnn_out_reshaped.set_shape([None, cnn_shape[2], cnn_shape[1] * cnn_shape[3]])
 
         with tf.variable_scope('bilstm1'):
-            bilstm = self._bidirectional_LSTM(lstm_inputs, self.FLAGS.num_hidden)
+            bilstm = self._bidirectional_LSTM(cnn_out_reshaped, self.FLAGS.rnn_num_units)
 
         with tf.variable_scope('bilstm2'):
             bilstm = self._bidirectional_LSTM(bilstm, self.num_classes)
@@ -73,19 +79,19 @@ class CRNN(object):
 
         self.lr = tf.train.exponential_decay(self.FLAGS.lr,
                                              self.global_step,
-                                             self.FLAGS.decay_steps,
-                                             self.FLAGS.decay_rate,
+                                             self.FLAGS.lr_decay_steps,
+                                             self.FLAGS.lr_decay_rate,
                                              staircase=True)
         tf.summary.scalar("learning_rate", self.lr)
 
-        if self.FLAGS.optim == 'adam':
+        if self.FLAGS.optimizer == 'adam':
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr,
                                                     beta1=self.FLAGS.beta1,
                                                     beta2=self.FLAGS.beta2)
-        elif self.FLAGS.optim == 'rms':
+        elif self.FLAGS.optimizer == 'rms':
             self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.lr,
                                                        epsilon=1e-8)
-        elif self.FLAGS.optim == 'adadelate':
+        elif self.FLAGS.optimizer == 'adadelate':
             self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr,
                                                         rho=0.9,
                                                         epsilon=1e-06)
@@ -112,9 +118,9 @@ class CRNN(object):
         self.edit_distance = tf.reduce_mean(tf.gather(self.edit_distances, non_zero_indices))
 
     def _LSTM_cell(self, num_proj=None):
-        cell = tf.nn.rnn_cell.LSTMCell(num_units=self.FLAGS.num_hidden, num_proj=num_proj)
-        if self.FLAGS.keep_prob < 1:
-            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, output_keep_prob=self.FLAGS.keep_prob)
+        cell = tf.nn.rnn_cell.LSTMCell(num_units=self.FLAGS.rnn_num_units, num_proj=num_proj)
+        if self.FLAGS.rnn_keep_prob < 1:
+            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, output_keep_prob=self.FLAGS.rnn_keep_prob)
         return cell
 
     def _paper_bidirectional_LSTM(self, inputs, num_proj):
@@ -139,7 +145,7 @@ class CRNN(object):
                                                      dtype=tf.float32)
 
         outputs = tf.concat(outputs, 2)
-        outputs = tf.reshape(outputs, [-1, self.FLAGS.num_hidden * 2])
+        outputs = tf.reshape(outputs, [-1, self.FLAGS.rnn_num_units * 2])
 
         outputs = slim.fully_connected(outputs, num_out)
 

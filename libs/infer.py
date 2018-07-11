@@ -31,7 +31,7 @@ def calculate_edit_distance_mean(edit_distences):
     return np.mean(data)
 
 
-def validation(sess, model, dataset, converter, step, result_dir, name):
+def validation(sess, model, dataset, converter, step, result_dir, name, print_batch_info=False):
     """
     Save file name: {step}_{acc}.txt
     :param sess: tensorflow session
@@ -40,7 +40,7 @@ def validation(sess, model, dataset, converter, step, result_dir, name):
     :param name: val, test or infer
     :return:
     """
-    dataset.init_op.run()
+    sess.run(dataset.init_op)
     num_batches = int(math.floor(dataset.size / dataset.batch_size))
 
     predicts = []
@@ -63,15 +63,17 @@ def validation(sess, model, dataset, converter, step, result_dir, name):
         ]
 
         batch_predicts, edit_distance, batch_edit_distances = sess.run(fetches, feed)
-        batch_predicts = [converter.decode(p, CRNN.CTC_INVALID_INDEX) for p in predicts]
+        batch_predicts = [converter.decode(p, CRNN.CTC_INVALID_INDEX) for p in batch_predicts]
 
         predicts.extend(batch_predicts)
         labels.extend(batch_labels)
         edit_distances.extend(batch_edit_distances)
 
         acc, correct_count = calculate_accuracy(predicts, labels)
-        print("Batch [{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
-              .format(batch, time.time() - batch_start_time, acc, correct_count, dataset.batch_size, edit_distance))
+        if print_batch_info:
+            print("Batch [{}/{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
+                  .format(batch, num_batches, time.time() - batch_start_time, acc, correct_count, dataset.batch_size,
+                          edit_distance))
 
     acc, correct_count = calculate_accuracy(predicts, labels)
     edit_distance_mean = calculate_edit_distance_mean(edit_distances)
