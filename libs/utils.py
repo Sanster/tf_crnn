@@ -36,6 +36,8 @@ def load_labels(filepath, img_num=None):
     return labels
 
 
+
+
 # https://stackoverflow.com/questions/49063938/padding-labels-for-tensorflow-ctc-loss
 def dense_to_sparse(dense_tensor, sparse_val=-1):
     """Inverse of tf.sparse_to_dense.
