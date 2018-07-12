@@ -25,9 +25,10 @@ def save_flags(args, save_dir):
             f.write("%s: %s\n" % (k, v))
 
 
-def parse_args():
+def parse_args(infer=False):
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--gpu', action='store_true', default=False)
     parser.add_argument('--restore', action='store_true', help='Whether to resotre checkpoint from ckpt_dir')
     parser.add_argument('--tag', default='default', help='Subdirectory to create in checkpoint_dir/log_dir/result_dir')
     parser.add_argument('--ckpt_dir', default='./output/checkpoint', help='Directory to save tensorflow checkpoint')
@@ -44,6 +45,8 @@ def parse_args():
     parser.add_argument('--val_dir', default=None, help='Directory store validation images and labels')
     parser.add_argument('--test_dir', default=None, help='Directory store test images and labels')
 
+    parser.add_argument('--infer_dir', default=None, help='Directory store infer images and labels')
+
     # Hyper parameters
     parser.add_argument('--cnn', default='raw', choices=['raw', 'squeeze', 'dense'])
     parser.add_argument('--batch_size', type=int, default=128)
@@ -58,7 +61,7 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
 
-    if not os.path.exists(args.train_dir):
+    if (not infer) and (not os.path.exists(args.train_dir)):
         parser.error('train_dir not exist')
 
     if (args.val_dir is not None) and (not os.path.exists(args.val_dir)):
@@ -66,6 +69,9 @@ def parse_args():
 
     if (args.test_dir is not None) and (not os.path.exists(args.test_dir)):
         parser.error('test_dir not exist')
+
+    if infer and (not os.path.exists(args.infer_dir)):
+        parser.error('infer_dir not exist')
 
     args.ckpt_dir = os.path.join(args.ckpt_dir, args.tag)
     args.flags_fir = os.path.join(args.ckpt_dir, "flags")

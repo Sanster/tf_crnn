@@ -33,7 +33,7 @@ def calculate_edit_distance_mean(edit_distences):
 
 def validation(sess, model, dataset, converter, step, result_dir, name, print_batch_info=False):
     """
-    Save file name: {step}_{acc}.txt
+    Save file name: {acc}_{step}.txt
     :param sess: tensorflow session
     :param model: crnn network
     :param result_dir:
@@ -69,7 +69,7 @@ def validation(sess, model, dataset, converter, step, result_dir, name, print_ba
         labels.extend(batch_labels)
         edit_distances.extend(batch_edit_distances)
 
-        acc, correct_count = calculate_accuracy(predicts, labels)
+        acc, correct_count = calculate_accuracy(batch_predicts, batch_labels)
         if print_batch_info:
             print("Batch [{}/{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
                   .format(batch, num_batches, time.time() - batch_start_time, acc, correct_count, dataset.batch_size,
@@ -84,7 +84,7 @@ def validation(sess, model, dataset, converter, step, result_dir, name, print_ba
 
     save_dir = os.path.join(result_dir, name)
     utils.check_dir_exist(save_dir)
-    file_path = os.path.join(save_dir, '%d_%.3f' % (step, acc))
+    file_path = os.path.join(save_dir, '%.3f_%d.txt' % (acc, step))
 
     print("Write result to %s" % file_path)
     with open(file_path, 'w', encoding='utf-8') as f:
