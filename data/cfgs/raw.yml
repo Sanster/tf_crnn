@@ -2,8 +2,8 @@ name: raw
 epochs: 50
 batch_size: 256
 
-lr: 0.001
-lr_decay_steps: 20000
+lr: 0.1
+lr_decay_steps: 10000
 lr_decay_rate: 0.5
 
 # adadelate, adam, rms

@@ -6,6 +6,7 @@ from nets.cnn.paper_cnn import PaperCNN
 from nets.cnn.dense_net import DenseNet
 from nets.cnn.squeeze_net import SqueezeNet
 from nets.cnn.resnet_v2 import ResNetV2
+from nets.cnn.simple_net import SimpleNet
 
 
 class CRNN(object):
@@ -37,6 +38,8 @@ class CRNN(object):
             net = SqueezeNet(self.inputs, self.is_training)
         elif self.cfg.name == 'resnet':
             net = ResNetV2(self.inputs, self.is_training)
+        elif self.cfg.name == 'simple':
+            net = SimpleNet(self.inputs, self.is_training)
 
         # tf.reshape() vs Tensor.set_shape(): https://stackoverflow.com/questions/35451948/clarification-on-tf-tensor-set-shape
         # tf.shape() vs Tensor.get_shape(): https://stackoverflow.com/questions/37096225/how-to-understand-static-shape-and-dynamic-shape-in-tensorflow
