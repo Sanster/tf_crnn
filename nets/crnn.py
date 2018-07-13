@@ -1,24 +1,26 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+from libs.config import load_config
 from nets.cnn.paper_cnn import PaperCNN
 from nets.cnn.dense_net import DenseNet
 from nets.cnn.squeeze_net import SqueezeNet
+from nets.cnn.resnet_v2 import ResNetV2
 
 
 class CRNN(object):
     CTC_INVALID_INDEX = -1
 
-    def __init__(self, FLAGS, num_classes):
+    def __init__(self, cfg, num_classes):
         self.inputs = tf.placeholder(tf.float32,
                                      [None, 32, None, 1],
                                      name="inputs")
+        self.cfg = cfg
         # SparseTensor required by ctc_loss op
         self.labels = tf.sparse_placeholder(tf.int32, name="labels")
         # 1d array of size [batch_size]
         self.is_training = tf.placeholder(tf.bool, name="is_training")
 
-        self.FLAGS = FLAGS
         self.num_classes = num_classes
 
         self._build_model()
@@ -27,12 +29,14 @@ class CRNN(object):
         self.merged_summay = tf.summary.merge_all()
 
     def _build_model(self):
-        if self.FLAGS.cnn == 'raw':
+        if self.cfg.name == 'raw':
             net = PaperCNN(self.inputs, self.is_training)
-        elif self.FLAGS.cnn == 'dense':
+        elif self.cfg.name == 'dense':
             net = DenseNet(self.inputs, self.is_training)
-        elif self.FLAGS.cnn == 'squeeze':
+        elif self.cfg.name == 'squeeze':
             net = SqueezeNet(self.inputs, self.is_training)
+        elif self.cfg.name == 'resnet':
+            net = ResNetV2(self.inputs, self.is_training)
 
         # tf.reshape() vs Tensor.set_shape(): https://stackoverflow.com/questions/35451948/clarification-on-tf-tensor-set-shape
         # tf.shape() vs Tensor.get_shape(): https://stackoverflow.com/questions/37096225/how-to-understand-static-shape-and-dynamic-shape-in-tensorflow
@@ -55,7 +59,7 @@ class CRNN(object):
         cnn_out_reshaped.set_shape([None, cnn_shape[2], cnn_shape[1] * cnn_shape[3]])
 
         with tf.variable_scope('bilstm1'):
-            bilstm = self._bidirectional_LSTM(cnn_out_reshaped, self.FLAGS.rnn_num_units)
+            bilstm = self._bidirectional_LSTM(cnn_out_reshaped, self.cfg.rnn_num_units)
 
         with tf.variable_scope('bilstm2'):
             bilstm = self._bidirectional_LSTM(bilstm, self.num_classes)
@@ -78,21 +82,19 @@ class CRNN(object):
         self.cost = tf.reduce_mean(self.ctc_loss)
         tf.summary.scalar('ctc_loss', self.cost)
 
-        self.lr = tf.train.exponential_decay(self.FLAGS.lr,
+        self.lr = tf.train.exponential_decay(self.cfg.lr,
                                              self.global_step,
-                                             self.FLAGS.lr_decay_steps,
-                                             self.FLAGS.lr_decay_rate,
+                                             self.cfg.lr_decay_steps,
+                                             self.cfg.lr_decay_rate,
                                              staircase=True)
         tf.summary.scalar("learning_rate", self.lr)
 
-        if self.FLAGS.optimizer == 'adam':
-            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr,
-                                                    beta1=self.FLAGS.beta1,
-                                                    beta2=self.FLAGS.beta2)
-        elif self.FLAGS.optimizer == 'rms':
+        if self.cfg.optimizer == 'adam':
+            self.optimizer = tf.train.AdamOptimizer(learning_rate=self.lr)
+        elif self.cfg.optimizer == 'rms':
             self.optimizer = tf.train.RMSPropOptimizer(learning_rate=self.lr,
                                                        epsilon=1e-8)
-        elif self.FLAGS.optimizer == 'adadelate':
+        elif self.cfg.optimizer == 'adadelate':
             self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr,
                                                         rho=0.9,
                                                         epsilon=1e-06)
@@ -119,9 +121,9 @@ class CRNN(object):
         self.edit_distance = tf.reduce_mean(tf.gather(self.edit_distances, non_zero_indices))
 
     def _LSTM_cell(self, num_proj=None):
-        cell = tf.nn.rnn_cell.LSTMCell(num_units=self.FLAGS.rnn_num_units, num_proj=num_proj)
-        if self.FLAGS.rnn_keep_prob < 1:
-            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, output_keep_prob=self.FLAGS.rnn_keep_prob)
+        cell = tf.nn.rnn_cell.LSTMCell(num_units=self.cfg.rnn_num_units, num_proj=num_proj)
+        if self.cfg.rnn_keep_prob < 1:
+            cell = tf.contrib.rnn.DropoutWrapper(cell=cell, output_keep_prob=self.cfg.rnn_keep_prob)
         return cell
 
     def _paper_bidirectional_LSTM(self, inputs, num_proj):
@@ -146,7 +148,7 @@ class CRNN(object):
                                                      dtype=tf.float32)
 
         outputs = tf.concat(outputs, 2)
-        outputs = tf.reshape(outputs, [-1, self.FLAGS.rnn_num_units * 2])
+        outputs = tf.reshape(outputs, [-1, self.cfg.rnn_num_units * 2])
 
         outputs = slim.fully_connected(outputs, num_out, activation_fn=None)
 

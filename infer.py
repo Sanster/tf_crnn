@@ -3,6 +3,7 @@ import os
 import tensorflow as tf
 
 import libs.utils as utils
+from libs.config import load_config
 from libs.infer import validation
 from nets.crnn import CRNN
 from libs.label_converter import LabelConverter
@@ -13,8 +14,8 @@ from parse_args import parse_args
 
 def infer(args):
     converter = LabelConverter(chars_file=args.chars_file)
-    model = CRNN(args, num_classes=converter.num_classes)
-    dataset = ImgDataset(args.infer_dir, converter, args.batch_size, shuffle=False)
+    model = CRNN(load_config(args.net_name), num_classes=converter.num_classes)
+    dataset = ImgDataset(args.infer_dir, converter, args.infer_batch_size, shuffle=False)
 
     config = tf.ConfigProto(allow_soft_placement=True)
     with tf.Session(config=config) as sess:

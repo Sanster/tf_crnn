@@ -37,7 +37,6 @@ def parse_args(infer=False):
 
     parser.add_argument('--chars_file', default='./data/chars/chn.txt', help='Chars file to load')
 
-    parser.add_argument('--epochs', type=int, default=100, help='Epochs to run')
     parser.add_argument('--val_step', type=int, default=2000, help='Steps to do val.test and save checkpoint')
     parser.add_argument('--log_step', type=int, default=30, help='Steps save tensorflow summary')
 
@@ -46,18 +45,9 @@ def parse_args(infer=False):
     parser.add_argument('--test_dir', default=None, help='Directory store test images and labels')
 
     parser.add_argument('--infer_dir', default=None, help='Directory store infer images and labels')
+    parser.add_argument('--infer_batch_size', type=int, default=256)
 
-    # Hyper parameters
-    parser.add_argument('--cnn', default='raw', choices=['raw', 'squeeze', 'dense'])
-    parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--lr', type=float, default=0.1, help='Initial learning rate')
-    parser.add_argument('--lr_decay_steps', type=float, default=10000)
-    parser.add_argument('--lr_decay_rate', type=float, default=0.9)
-
-    parser.add_argument('--optimizer', default='adadelate', choices=['adadelate', 'adam', 'rms'])
-
-    parser.add_argument('--rnn_keep_prob', type=float, default=1.0, help='RNN dropout keep prob')
-    parser.add_argument('--rnn_num_units', type=int, default=256, help='The number of units in the LSTM cell')
+    parser.add_argument('--net_name', default='raw', choices=['raw', 'squeeze', 'dense', 'resnet'])
 
     args, _ = parser.parse_known_args()
 
@@ -85,7 +75,7 @@ def parse_args(infer=False):
 
     save_flags(args, args.flags_fir)
 
-    print('Use %s as base net' % args.cnn)
+    print('Use %s as base net' % args.net_name)
 
     return args
 

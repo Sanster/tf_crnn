@@ -2,6 +2,8 @@ import os
 import time
 import math
 
+from libs.config import load_config
+
 RNG_SEED = 42
 import numpy as np
 
@@ -23,15 +25,16 @@ from parse_args import parse_args
 class Trainer(object):
     def __init__(self, args):
         self.args = args
+        self.cfg = load_config(args.net_name)
 
         self.converter = LabelConverter(chars_file=args.chars_file)
 
-        self.tr_ds = ImgDataset(args.train_dir, self.converter, args.batch_size)
+        self.tr_ds = ImgDataset(args.train_dir, self.converter, self.cfg.batch_size)
 
         if args.val_dir is None:
             self.val_ds = None
         else:
-            self.val_ds = ImgDataset(args.val_dir, self.converter, args.batch_size, shuffle=False)
+            self.val_ds = ImgDataset(args.val_dir, self.converter, self.cfg.batch_size, shuffle=False)
 
         if args.test_dir is None:
             self.test_ds = None
@@ -39,9 +42,9 @@ class Trainer(object):
             # Test images often have different size, so set batch_size to 1
             self.test_ds = ImgDataset(args.test_dir, self.converter, shuffle=False, batch_size=1)
 
-        self.num_batches = int(np.floor(self.tr_ds.size / args.batch_size))
+        self.num_batches = int(np.floor(self.tr_ds.size / self.cfg.batch_size))
 
-        self.model = CRNN(args, num_classes=self.converter.num_classes)
+        self.model = CRNN(self.cfg, num_classes=self.converter.num_classes)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
         self.epoch_start_index = 0
@@ -57,7 +60,7 @@ class Trainer(object):
             self._restore()
 
         print('Begin training...')
-        for epoch in range(self.epoch_start_index, self.args.epochs):
+        for epoch in range(self.epoch_start_index, self.cfg.epochs):
             self.sess.run(self.tr_ds.init_op)
 
             for batch in range(self.batch_start_index, self.num_batches):
@@ -140,7 +143,7 @@ class Trainer(object):
         tf_utils.add_scalar_summary(self.train_writer, "%s_accuracy" % name, accuracy, step)
         tf_utils.add_scalar_summary(self.train_writer, "%s_edit_distance" % name, edit_distance, step)
 
-        print("epoch: %d/%d, %s accuracy = %.3f" % (epoch, self.args.epochs, name, accuracy))
+        print("epoch: %d/%d, %s accuracy = %.3f" % (epoch, self.cfg.epochs, name, accuracy))
         return accuracy
 
     def _save_checkpoint(self, ckpt_dir, step, val_acc=None, test_acc=None):
