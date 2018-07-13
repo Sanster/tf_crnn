@@ -14,7 +14,7 @@ from parse_args import parse_args
 
 def infer(args):
     converter = LabelConverter(chars_file=args.chars_file)
-    model = CRNN(load_config(args.net_name), num_classes=converter.num_classes)
+    model = CRNN(load_config(args.cfg_name), num_classes=converter.num_classes)
     dataset = ImgDataset(args.infer_dir, converter, args.infer_batch_size, shuffle=False)
 
     config = tf.ConfigProto(allow_soft_placement=True)

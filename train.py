@@ -25,7 +25,7 @@ from parse_args import parse_args
 class Trainer(object):
     def __init__(self, args):
         self.args = args
-        self.cfg = load_config(args.net_name)
+        self.cfg = load_config(args.cfg_name)
 
         self.converter = LabelConverter(chars_file=args.chars_file)
 

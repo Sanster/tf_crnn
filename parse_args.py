@@ -48,6 +48,7 @@ def parse_args(infer=False):
     parser.add_argument('--infer_batch_size', type=int, default=256)
 
     parser.add_argument('--net_name', default='raw', choices=['raw', 'squeeze', 'dense', 'resnet'])
+    parser.add_argument('--cfg_name', default='raw', choices=['raw', 'squeeze', 'dense', 'resnet'])
 
     args, _ = parser.parse_known_args()
 
