@@ -18,7 +18,7 @@ class SqueezeNet(object):
             with slim.arg_scope([slim.conv2d, slim.max_pool2d, slim.batch_norm],
                                 outputs_collections=end_points_collection):
                 net = slim.conv2d(inputs, 96, [3, 3], scope='conv1')
-                net = slim.max_pool2d(net, [3, 3], stride=2, scope='maxpool1')
+                net = slim.max_pool2d(net, [2, 2], stride=2, scope='maxpool1')
                 net = self.fire_module(net, 16, 64, scope='fire2')
                 net = self.fire_module(net, 16, 64, scope='fire3')
                 net = self.fire_module(net, 32, 128, scope='fire4')
@@ -27,7 +27,7 @@ class SqueezeNet(object):
                 net = self.fire_module(net, 48, 192, scope='fire6')
                 net = self.fire_module(net, 48, 192, scope='fire7')
                 net = self.fire_module(net, 64, 256, scope='fire8')
-                net = slim.max_pool2d(net, [3, 3], stride=[2, 1], scope='maxpool8')
+                net = slim.max_pool2d(net, [2, 2], stride=[2, 1], scope='maxpool8')
                 net = self.fire_module(net, 64, 256, scope='fire9')
 
         self.end_points = utils.convert_collection_to_dict(end_points_collection)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     sys.path.insert(0, '../../libs')
     from tf_utils import print_endpoints
 
-    inputs = tf.placeholder(tf.float32, [None, 32, None, 1], name="inputs")
+    inputs = tf.placeholder(tf.float32, [1, 32, 256, 1], name="inputs")
     is_training = tf.placeholder(tf.bool, name="is_training")
     img_file = '/home/cwq/data/ocr/train_data/400w_eng_corpus/val/00000000.jpg'
 
