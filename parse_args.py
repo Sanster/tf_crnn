@@ -47,8 +47,7 @@ def parse_args(infer=False):
     parser.add_argument('--infer_dir', default=None, help='Directory store infer images and labels')
     parser.add_argument('--infer_batch_size', type=int, default=256)
 
-    parser.add_argument('--net_name', default='raw', choices=['raw', 'squeeze', 'dense', 'resnet', 'simple'])
-    parser.add_argument('--cfg_name', default='raw', choices=['raw', 'squeeze', 'dense', 'resnet'])
+    parser.add_argument('--cfg_name', default='raw', choices=['raw', 'squeeze', 'dense', 'resnet', 'simple'])
 
     args, _ = parser.parse_known_args()
 
@@ -76,7 +75,7 @@ def parse_args(infer=False):
 
     save_flags(args, args.flags_fir)
 
-    print('Use %s as base net' % args.net_name)
+    print('Use %s as base net' % args.cfg_name)
 
     return args
 
