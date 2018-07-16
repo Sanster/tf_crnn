@@ -49,7 +49,7 @@ if __name__ == '__main__':
     sys.path.insert(0, '../../libs')
     from tf_utils import print_endpoints
 
-    inputs = tf.placeholder(tf.float32, [None, 32, None, 1], name="inputs")
+    inputs = tf.placeholder(tf.float32, [1, 32, 256, 1], name="inputs")
     is_training = tf.placeholder(tf.bool, name="is_training")
     img_file = '/home/cwq/data/ocr/train_data/400w_eng_corpus/val/00000000.jpg'
 

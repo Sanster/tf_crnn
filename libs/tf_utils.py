@@ -37,6 +37,12 @@ def print_endpoints(net, inputs, is_training, img_path, CPU=True):
 
         cnn_out = sess.run(cnn_out, feed_dict={inputs: [img], is_training: True})
 
+        print('-' * 50)
+        run_meta = tf.RunMetadata()
+        opts = tf.profiler.ProfileOptionBuilder.float_operation()
+        flops = tf.profiler.profile(sess.graph, run_meta=run_meta, cmd='op', options=opts)
+        print("Net FLOP: %.02fM" % (flops.total_float_ops / 1000000))
+
     def size(v):
         return reduce(lambda x, y: x * y, v.get_shape().as_list())
 
@@ -48,3 +54,20 @@ def print_endpoints(net, inputs, is_training, img_path, CPU=True):
     print("Output shape: {}".format(net.net))
     print('Cnn out reshaped for lstm: ')
     print(cnn_out.shape)
+
+
+if __name__ == '__main__':
+    # https://stackoverflow.com/questions/45085938/tensorflow-is-there-a-way-to-measure-flops-for-a-model
+    g = tf.Graph()
+    run_meta = tf.RunMetadata()
+    with g.as_default():
+        A = tf.Variable(tf.random_normal([25, 16]))
+        B = tf.Variable(tf.random_normal([16, 9]))
+        C = tf.matmul(A, B)  # shape=[25,9]
+
+        opts = tf.profiler.ProfileOptionBuilder.float_operation()
+        flops = tf.profiler.profile(g, run_meta=run_meta, cmd='op', options=opts)
+        # if flops is not None:
+        #     print('Flops should be ~', 2 * 25 * 16 * 9)
+        #     print('25 x 25 x 9 would be', 2 * 25 * 25 * 9)  # ignores internal dim, repeats first
+        #     print('TF stats gives', flops.total_float_ops)

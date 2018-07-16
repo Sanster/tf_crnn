@@ -84,3 +84,4 @@ if __name__ == '__main__':
 
     squeeze_net = SqueezeNet(inputs, is_training)
     print_endpoints(squeeze_net, inputs, is_training, img_file)
+
