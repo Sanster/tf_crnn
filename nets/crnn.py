@@ -161,3 +161,21 @@ class CRNN(object):
         outputs = tf.reshape(outputs, [shape[0], -1, num_out])
 
         return outputs
+
+    def fetches(self):
+        """
+        Return operations to fetch for inference
+        """
+        return [
+            self.dense_decoded,
+            self.edit_distance,
+            self.edit_distances
+        ]
+
+    def feeds(self):
+        """
+        Return placeholders to feed for inference
+        """
+        return {'inputs': self.inputs,
+                'labels': self.labels,
+                'is_training': self.is_training}

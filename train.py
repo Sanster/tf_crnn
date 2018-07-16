@@ -137,8 +137,8 @@ class Trainer(object):
         if dataset is None:
             return None
 
-        accuracy, edit_distance = infer.validation(self.sess, self.model, dataset, self.converter,
-                                                   step, self.args.result_dir, name)
+        accuracy, edit_distance = infer.validation(self.sess, self.model.feeds(), self.model.fetches(),
+                                                   dataset, self.converter, self.args.result_dir, name, step)
 
         tf_utils.add_scalar_summary(self.train_writer, "%s_accuracy" % name, accuracy, step)
         tf_utils.add_scalar_summary(self.train_writer, "%s_edit_distance" % name, edit_distance, step)

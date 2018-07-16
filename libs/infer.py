@@ -31,13 +31,13 @@ def calculate_edit_distance_mean(edit_distences):
     return np.mean(data)
 
 
-def validation(sess, model, dataset, converter, step, result_dir, name, print_batch_info=False):
+def validation(sess, feeds, fetches, dataset, converter, result_dir, name, step=None, print_batch_info=False):
     """
     Save file name: {acc}_{step}.txt
     :param sess: tensorflow session
     :param model: crnn network
     :param result_dir:
-    :param name: val, test or infer
+    :param name: val, test, infer
     :return:
     """
     sess.run(dataset.init_op)
@@ -52,15 +52,9 @@ def validation(sess, model, dataset, converter, step, result_dir, name, print_ba
 
         batch_start_time = time.time()
 
-        feed = {model.inputs: img_batch,
-                model.labels: label_batch,
-                model.is_training: False}
-
-        fetches = [
-            model.dense_decoded,
-            model.edit_distance,
-            model.edit_distances
-        ]
+        feed = {feeds['inputs']: img_batch,
+                feeds['labels']: label_batch,
+                feeds['is_training']: False}
 
         batch_predicts, edit_distance, batch_edit_distances = sess.run(fetches, feed)
         batch_predicts = [converter.decode(p, CRNN.CTC_INVALID_INDEX) for p in batch_predicts]
@@ -84,7 +78,10 @@ def validation(sess, model, dataset, converter, step, result_dir, name, print_ba
 
     save_dir = os.path.join(result_dir, name)
     utils.check_dir_exist(save_dir)
-    file_path = os.path.join(save_dir, '%.3f_%d.txt' % (acc, step))
+    if step is not None:
+        file_path = os.path.join(save_dir, '%.3f_%d.txt' % (acc, step))
+    else:
+        file_path = os.path.join(save_dir, '%.3f.txt' % acc)
 
     print("Write result to %s" % file_path)
     with open(file_path, 'w', encoding='utf-8') as f:
