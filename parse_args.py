@@ -47,7 +47,7 @@ def parse_args(infer=False):
     parser.add_argument('--infer_dir', default=None, help='Directory store infer images and labels')
     parser.add_argument('--infer_batch_size', type=int, default=256)
 
-    parser.add_argument('--cfg_name', default='raw', choices=['raw', 'squeeze', 'dense', 'resnet', 'simple'])
+    parser.add_argument('--cfg_name', default='raw', help="raw / squeeze/ dense / resnet / simple")
 
     args, _ = parser.parse_known_args()
 

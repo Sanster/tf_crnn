@@ -61,16 +61,20 @@ class CRNN(object):
         cnn_shape = cnn_out.get_shape().as_list()
         cnn_out_reshaped.set_shape([None, cnn_shape[2], cnn_shape[1] * cnn_shape[3]])
 
-        bilstm = cnn_out_reshaped
-        for i in range(self.cfg.num_lstm_layer):
-            with tf.variable_scope('bilstm_%d' % (i + 1)):
-                if i == (self.cfg.num_lstm_layer - 1):
-                    bilstm = self._bidirectional_LSTM(bilstm, self.num_classes)
-                else:
-                    bilstm = self._bidirectional_LSTM(bilstm, self.cfg.rnn_num_units)
+        if self.cfg.use_lstm:
+            bilstm = cnn_out_reshaped
+            for i in range(self.cfg.num_lstm_layer):
+                with tf.variable_scope('bilstm_%d' % (i + 1)):
+                    if i == (self.cfg.num_lstm_layer - 1):
+                        bilstm = self._bidirectional_LSTM(bilstm, self.num_classes)
+                    else:
+                        bilstm = self._bidirectional_LSTM(bilstm, self.cfg.rnn_num_units)
+            logits = bilstm
+        else:
+            logits = slim.fully_connected(cnn_out_reshaped, self.num_classes)
 
         # ctc require time major
-        self.logits = tf.transpose(bilstm, (1, 0, 2))
+        self.logits = tf.transpose(logits, (1, 0, 2))
 
     def _build_train_op(self):
         self.global_step = tf.Variable(0, trainable=False)

@@ -1,15 +1,15 @@
 name: raw
-epochs: 50
+epochs: 10
 batch_size: 256
 
 lr: 0.1
-lr_decay_steps: 10000
+lr_decay_steps: 20000
 lr_decay_rate: 0.5
 
 # adadelate, adam, rms
 optimizer: adadelate
 
-lstm: true
+use_lstm: true
 num_lstm_layer: 2
 rnn_keep_prob: 1.0
 rnn_num_units: 256
