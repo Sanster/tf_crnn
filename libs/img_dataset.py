@@ -58,11 +58,12 @@ class ImgDataset:
     def get_next_batch(self, sess):
         """return images and labels of a batch"""
         img_batch, labels, img_paths = sess.run(self.next_batch)
+        img_paths = [x.decode() for x in img_paths]
         labels = [l.decode() for l in labels]
 
         encoded_label_batch = self.converter.encode_list(labels)
         sparse_label_batch = self._sparse_tuple_from_label(encoded_label_batch)
-        return img_batch, sparse_label_batch, labels
+        return img_batch, sparse_label_batch, labels, img_paths
 
     def _sparse_tuple_from_label(self, sequences, default_val=-1, dtype=np.int32):
         """Create a sparse representention of x.

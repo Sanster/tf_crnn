@@ -95,7 +95,7 @@ class Trainer(object):
         print("Restored batch_start_index: %d" % self.batch_start_index)
 
     def _train(self):
-        img_batch, label_batch, labels = self.tr_ds.get_next_batch(self.sess)
+        img_batch, label_batch, labels, _ = self.tr_ds.get_next_batch(self.sess)
         feed = {self.model.inputs: img_batch,
                 self.model.labels: label_batch,
                 self.model.is_training: True}
@@ -109,7 +109,7 @@ class Trainer(object):
         return batch_cost, global_step, lr
 
     def _train_with_summary(self):
-        img_batch, label_batch, labels = self.tr_ds.get_next_batch(self.sess)
+        img_batch, label_batch, labels, _ = self.tr_ds.get_next_batch(self.sess)
         feed = {self.model.inputs: img_batch,
                 self.model.labels: label_batch,
                 self.model.is_training: True}

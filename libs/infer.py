@@ -6,6 +6,7 @@ import numpy as np
 
 from libs import utils
 from nets.crnn import CRNN
+import shutil
 
 
 def calculate_accuracy(predicts, labels):
@@ -31,7 +32,8 @@ def calculate_edit_distance_mean(edit_distences):
     return np.mean(data)
 
 
-def validation(sess, feeds, fetches, dataset, converter, result_dir, name, step=None, print_batch_info=False):
+def validation(sess, feeds, fetches, dataset, converter, result_dir, name,
+               step=None, print_batch_info=False, copy_failed=False):
     """
     Save file name: {acc}_{step}.txt
     :param sess: tensorflow session
@@ -43,12 +45,13 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name, step=
     sess.run(dataset.init_op)
     num_batches = int(math.floor(dataset.size / dataset.batch_size))
 
+    img_paths = []
     predicts = []
     labels = []
     edit_distances = []
 
     for batch in range(num_batches):
-        img_batch, label_batch, batch_labels = dataset.get_next_batch(sess)
+        img_batch, label_batch, batch_labels, batch_img_paths = dataset.get_next_batch(sess)
 
         batch_start_time = time.time()
 
@@ -59,6 +62,7 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name, step=
         batch_predicts, edit_distance, batch_edit_distances = sess.run(fetches, feed)
         batch_predicts = [converter.decode(p, CRNN.CTC_INVALID_INDEX) for p in batch_predicts]
 
+        img_paths.extend(batch_img_paths)
         predicts.extend(batch_predicts)
         labels.extend(batch_labels)
         edit_distances.extend(batch_edit_distances)
@@ -94,5 +98,35 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name, step=
             f.write("edit distance:  {}\n".format(edit_distances[i]))
             f.write('-' * 30 + '\n')
         f.write(acc_str + "\n")
+
+    # Copy image not all match to a dir
+    if copy_failed:
+        failed_infer_img_dir = file_path[:-4] + "_failed"
+        if os.path.exists(failed_infer_img_dir) and os.path.isdir(failed_infer_img_dir):
+            shutil.rmtree(failed_infer_img_dir)
+
+        utils.check_dir_exist(failed_infer_img_dir)
+
+        failed_image_indices = []
+        for i, val in enumerate(edit_distances):
+            if val != 0:
+                failed_image_indices.append(i)
+
+        for i in failed_image_indices:
+            img_path = img_paths[i]
+            img_name = img_path.split("/")[-1]
+            dst_path = os.path.join(failed_infer_img_dir, img_name)
+            shutil.copyfile(img_path, dst_path)
+
+        failed_infer_result_file_path = os.path.join(failed_infer_img_dir, "result.txt")
+        with open(failed_infer_result_file_path, 'w', encoding='utf-8') as f:
+            for i in failed_image_indices:
+                p_label = predicts[i]
+                t_label = labels[i]
+                f.write("{:08d}\n".format(i))
+                f.write("input:   {:17s} length: {}\n".format(t_label, len(t_label)))
+                f.write("predict: {:17s} length: {}\n".format(p_label, len(p_label)))
+                f.write("edit distance:  {}\n".format(edit_distances[i]))
+                f.write('-' * 30 + '\n')
 
     return acc, edit_distance_mean

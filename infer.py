@@ -61,7 +61,9 @@ def infer(args):
             sess.graph.get_tensor_by_name('edit_distance:0')  # batch edit distances
         ]
 
-        validation(sess, feeds, fetches, dataset, converter, args.result_dir, name='infer', print_batch_info=True)
+        validation(sess, feeds, fetches,
+                   dataset, converter, args.result_dir, name='infer',
+                   print_batch_info=True, copy_failed=args.infer_copy_failed)
 
 
 def main():

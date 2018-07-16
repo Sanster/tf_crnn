@@ -43,11 +43,13 @@ def parse_args(infer=False):
     parser.add_argument('--train_dir', default='', help='Directory store training images and labels')
     parser.add_argument('--val_dir', default=None, help='Directory store validation images and labels')
     parser.add_argument('--test_dir', default=None, help='Directory store test images and labels')
-
-    parser.add_argument('--infer_dir', default=None, help='Directory store infer images and labels')
-    parser.add_argument('--infer_batch_size', type=int, default=256)
-
     parser.add_argument('--cfg_name', default='raw', help="raw / squeeze/ dense / resnet / simple")
+
+    # Only for inference
+    parser.add_argument('--infer_dir', default=None, help='Directory store infer images and labels')
+    parser.add_argument('--infer_copy_failed', action='store_true', default=False,
+                        help='Copy failed image to result directory')
+    parser.add_argument('--infer_batch_size', type=int, default=256)
 
     args, _ = parser.parse_known_args()
 
