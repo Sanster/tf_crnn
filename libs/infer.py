@@ -29,6 +29,8 @@ def calculate_accuracy(predicts, labels):
 def calculate_edit_distance_mean(edit_distences):
     data = np.array(edit_distences)
     data = data[data != 0]
+    if len(data) == 0:
+        return 0
     return np.mean(data)
 
 
