@@ -1,9 +1,9 @@
-name: raw
-epochs: 10
-batch_size: 256
+name: simple
+epochs: 20
+batch_size: 128
 
-lr: 0.001
-lr_decay_steps: 20000
+lr: 0.01
+lr_decay_steps: 40000
 lr_decay_rate: 0.5
 
 # adadelate, adam, rms
