@@ -155,7 +155,29 @@ class Trainer(object):
 
         name = os.path.join(ckpt_dir, ckpt_name)
         print("save checkpoint %s" % name)
+
+        meta_exists, meta_file_name = self._meta_file_exist(ckpt_dir)
+
         self.saver.save(self.sess, name)
+
+        # remove old meta file to save disk space
+        if meta_exists:
+            try:
+                os.remove(os.path.join(ckpt_dir, meta_file_name))
+            except:
+                print('Remove meta file failed: %s' % meta_file_name)
+
+    def _meta_file_exist(self, ckpt_dir):
+        fnames = os.listdir(ckpt_dir)
+        meta_exists = False
+        meta_file_name = ''
+        for n in fnames:
+            if 'meta' in n:
+                meta_exists = True
+                meta_file_name = n
+                break
+
+        return meta_exists, meta_file_name
 
 
 def main():
