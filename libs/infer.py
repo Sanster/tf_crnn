@@ -51,6 +51,7 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name,
     predicts = []
     labels = []
     edit_distances = []
+    total_batch_time = 0
 
     for batch in range(num_batches):
         img_batch, label_batch, batch_labels, batch_img_paths = dataset.get_next_batch(sess)
@@ -70,15 +71,17 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name,
         edit_distances.extend(batch_edit_distances)
 
         acc, correct_count = calculate_accuracy(batch_predicts, batch_labels)
+        batch_time = time.time() - batch_start_time
+        total_batch_time += batch_time
         if print_batch_info:
             print("Batch [{}/{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
-                  .format(batch, num_batches, time.time() - batch_start_time, acc, correct_count, dataset.batch_size,
+                  .format(batch, num_batches, batch_time, acc, correct_count, dataset.batch_size,
                           edit_distance))
 
     acc, correct_count = calculate_accuracy(predicts, labels)
     edit_distance_mean = calculate_edit_distance_mean(edit_distances)
-    acc_str = "Accuracy: {:.03f} ({}/{}), Average edit distance: {:.03f}" \
-        .format(acc, correct_count, dataset.size, edit_distance_mean)
+    acc_str = "Accuracy: {:.03f} ({}/{}), Average edit distance: {:.03f}, Average batch time: {:.03f}" \
+        .format(acc, correct_count, dataset.size, edit_distance_mean, total_batch_time / num_batches)
 
     print(acc_str)
 
