@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 from libs.config import load_config
+from nets.cnn.mobile_net_v2 import MobileNetV2
 from nets.cnn.paper_cnn import PaperCNN
 from nets.cnn.dense_net import DenseNet
 from nets.cnn.squeeze_net import SqueezeNet
@@ -40,6 +41,8 @@ class CRNN(object):
             net = ResNetV2(self.inputs, self.is_training)
         elif self.cfg.name == 'simple':
             net = SimpleNet(self.inputs, self.is_training)
+        elif self.cfg.name == 'mobile':
+            net = MobileNetV2(self.inputs, self.is_training)
 
         # tf.reshape() vs Tensor.set_shape(): https://stackoverflow.com/questions/35451948/clarification-on-tf-tensor-set-shape
         # tf.shape() vs Tensor.get_shape(): https://stackoverflow.com/questions/37096225/how-to-understand-static-shape-and-dynamic-shape-in-tensorflow
