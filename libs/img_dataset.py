@@ -1,4 +1,5 @@
 import tensorflow as tf
+import math
 import os
 import cv2
 import numpy as np
@@ -54,6 +55,8 @@ class ImgDataset:
                                                    dataset.output_shapes)
         self.next_batch = iterator.get_next()
         self.init_op = iterator.make_initializer(dataset)
+
+        self.num_batches = math.ceil(self.size / self.batch_size)
 
     def get_next_batch(self, sess):
         """return images and labels of a batch"""
@@ -118,3 +121,26 @@ class ImgDataset:
         img_decoded = (img_decoded - 128.0) / 128.0
 
         return img_decoded, label, img_path
+
+
+if __name__ == '__main__':
+    from libs.label_converter import LabelConverter
+
+    demo_path = '/home/cwq/ssd_data/more_bg_corpus/val'
+    chars_file = '/home/cwq/code/tf_crnn/data/chars/chn.txt'
+    epochs = 5
+    batch_size = 128
+
+    converter = LabelConverter(chars_file=chars_file)
+    ds = ImgDataset(demo_path, converter, batch_size=batch_size)
+
+    num_batches = int(np.floor(ds.size / batch_size))
+
+    config = tf.ConfigProto(allow_soft_placement=True)
+    with tf.Session(config=config) as sess:
+        for epoch in range(epochs):
+            sess.run(ds.init_op)
+            print('------------Epoch(%d)------------' % epoch)
+            for batch in range(num_batches):
+                _, _, labels, _ = ds.get_next_batch(sess)
+                print(labels[0])

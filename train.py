@@ -42,8 +42,6 @@ class Trainer(object):
             # Test images often have different size, so set batch_size to 1
             self.test_ds = ImgDataset(args.test_dir, self.converter, shuffle=False, batch_size=1)
 
-        self.num_batches = int(np.floor(self.tr_ds.size / self.cfg.batch_size))
-
         self.model = CRNN(self.cfg, num_classes=self.converter.num_classes)
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
@@ -63,7 +61,7 @@ class Trainer(object):
         for epoch in range(self.epoch_start_index, self.cfg.epochs):
             self.sess.run(self.tr_ds.init_op)
 
-            for batch in range(self.batch_start_index, self.num_batches):
+            for batch in range(self.batch_start_index, self.tr_ds.num_batches):
                 batch_start_time = time.time()
 
                 if batch != 0 and (batch % self.args.log_step == 0):
@@ -72,7 +70,7 @@ class Trainer(object):
                     batch_cost, global_step, lr = self._train()
 
                 print("epoch: {}, batch: {}/{}, step: {}, time: {:.02f}s, loss: {:.05}, lr: {:.05}"
-                      .format(epoch, batch, self.num_batches, global_step, time.time() - batch_start_time,
+                      .format(epoch, batch, self.tr_ds.num_batches, global_step, time.time() - batch_start_time,
                               batch_cost, lr))
 
                 if global_step != 0 and (global_step % self.args.val_step == 0):
@@ -87,8 +85,8 @@ class Trainer(object):
 
         step_restored = self.sess.run(self.model.global_step)
 
-        self.epoch_start_index = math.floor(step_restored / self.num_batches)
-        self.batch_start_index = step_restored % self.num_batches
+        self.epoch_start_index = math.floor(step_restored / self.tr_ds.num_batches)
+        self.batch_start_index = step_restored % self.tr_ds.num_batches
 
         print("Restored global step: %d" % step_restored)
         print("Restored epoch: %d" % self.epoch_start_index)

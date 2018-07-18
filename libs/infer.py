@@ -5,6 +5,7 @@ import math
 import numpy as np
 
 from libs import utils
+from libs.img_dataset import ImgDataset
 from nets.crnn import CRNN
 import shutil
 
@@ -34,7 +35,7 @@ def calculate_edit_distance_mean(edit_distences):
     return np.mean(data)
 
 
-def validation(sess, feeds, fetches, dataset, converter, result_dir, name,
+def validation(sess, feeds, fetches, dataset: ImgDataset, converter, result_dir, name,
                step=None, print_batch_info=False, copy_failed=False):
     """
     Save file name: {acc}_{step}.txt
@@ -45,7 +46,6 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name,
     :return:
     """
     sess.run(dataset.init_op)
-    num_batches = int(math.floor(dataset.size / dataset.batch_size))
 
     img_paths = []
     predicts = []
@@ -53,7 +53,7 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name,
     edit_distances = []
     total_batch_time = 0
 
-    for batch in range(num_batches):
+    for batch in range(dataset.num_batches):
         img_batch, label_batch, batch_labels, batch_img_paths = dataset.get_next_batch(sess)
 
         batch_start_time = time.time()
@@ -75,13 +75,13 @@ def validation(sess, feeds, fetches, dataset, converter, result_dir, name,
         total_batch_time += batch_time
         if print_batch_info:
             print("Batch [{}/{}] {:.03f}s accuracy: {:.03f} ({}/{}), edit_distance: {:.03f}"
-                  .format(batch, num_batches, batch_time, acc, correct_count, dataset.batch_size,
+                  .format(batch, dataset.num_batches, batch_time, acc, correct_count, dataset.batch_size,
                           edit_distance))
 
     acc, correct_count = calculate_accuracy(predicts, labels)
     edit_distance_mean = calculate_edit_distance_mean(edit_distances)
     acc_str = "Accuracy: {:.03f} ({}/{}), Average edit distance: {:.03f}, Average batch time: {:.03f}" \
-        .format(acc, correct_count, dataset.size, edit_distance_mean, total_batch_time / num_batches)
+        .format(acc, correct_count, dataset.size, edit_distance_mean, total_batch_time / dataset.num_batches)
 
     print(acc_str)
 
