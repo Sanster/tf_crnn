@@ -4,7 +4,7 @@ batch_size: 64
 
 lr: 0.01
 lr_decay_steps: 100000
-lr_decay_rate: 0.5
+lr_decay_rate: 0.8
 
 # adadelate, adam, rms
 optimizer: adadelate
