@@ -74,7 +74,7 @@ class CRNN(object):
                         bilstm = self._bidirectional_LSTM(bilstm, self.cfg.rnn_num_units)
             logits = bilstm
         else:
-            logits = slim.fully_connected(cnn_out_reshaped, self.num_classes)
+            logits = slim.fully_connected(cnn_out_reshaped, self.num_classes, activation_fn=None)
 
         # ctc require time major
         self.logits = tf.transpose(logits, (1, 0, 2))
