@@ -31,6 +31,11 @@ class Trainer(object):
 
         self.tr_ds = ImgDataset(args.train_dir, self.converter, self.cfg.batch_size)
 
+        self.cfg.lr_boundaries = [self.tr_ds.num_batches * epoch for epoch in self.cfg.lr_decay_epochs]
+        self.cfg.lr_values = [self.cfg.lr * (self.cfg.lr_decay_rate ** i) for i in
+                              range(len(self.cfg.lr_boundaries) + 1)]
+        print(self.cfg)
+
         if args.val_dir is None:
             self.val_ds = None
         else:

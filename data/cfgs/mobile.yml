@@ -3,7 +3,9 @@ epochs: 10
 batch_size: 64
 
 lr: 0.01
-lr_decay_steps: 100000
+lr_decay_epochs:
+  - 3
+  - 6
 lr_decay_rate: 0.8
 
 # adadelate, adam, rms

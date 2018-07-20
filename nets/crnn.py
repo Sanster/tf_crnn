@@ -94,11 +94,14 @@ class CRNN(object):
         self.cost = tf.reduce_mean(self.ctc_loss)
         tf.summary.scalar('ctc_loss', self.cost)
 
-        self.lr = tf.train.exponential_decay(self.cfg.lr,
-                                             self.global_step,
-                                             self.cfg.lr_decay_steps,
-                                             self.cfg.lr_decay_rate,
-                                             staircase=True)
+        # self.lr = tf.train.exponential_decay(self.cfg.lr,
+        #                                      self.global_step,
+        #                                      self.cfg.lr_decay_steps,
+        #                                      self.cfg.lr_decay_rate,
+        #                                      staircase=True)
+
+        self.lr = tf.train.piecewise_constant(self.global_step, self.cfg.lr_boundaries, self.cfg.lr_values)
+
         tf.summary.scalar("learning_rate", self.lr)
 
         if self.cfg.optimizer == 'adam':
@@ -110,6 +113,9 @@ class CRNN(object):
             self.optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr,
                                                         rho=0.9,
                                                         epsilon=1e-06)
+        elif self.cfg.optimizer == 'sgd':
+            self.optimizer = tf.train.MomentumOptimizer(learning_rate=self.lr,
+                                                        momentum=0.9)
 
         # required by batch normalize
         # add update ops(for moving_mean and moving_variance) as a dependency to the train_op
