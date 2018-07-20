@@ -17,7 +17,7 @@ class DenseNet(object):
         layers_per_block=8,
         growth_rate=8,
         bc_mode=True,
-        dropout_keep_prob=1,
+        dropout_keep_prob=0.8,
     )
 
     def __init__(self, inputs, params=None, is_training=True):
