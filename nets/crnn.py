@@ -1,5 +1,3 @@
-
-
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
@@ -94,7 +92,7 @@ class CRNN(object):
                                        ignore_longer_outputs_than_inputs=True,
                                        sequence_length=self.seq_len)
         self.ctc_loss = tf.reduce_mean(self.ctc_loss)
-        self.regularization_loss = slim.losses.get_regularization_losses()
+        self.regularization_loss = tf.losses.get_regularization_losses()
         self.total_loss = self.ctc_loss + self.regularization_loss
 
         tf.summary.scalar('ctc_loss', self.ctc_loss)
