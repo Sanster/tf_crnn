@@ -102,7 +102,7 @@ class Trainer(object):
                 self.model.labels: label_batch,
                 self.model.is_training: True}
 
-        fetches = [self.model.cost,
+        fetches = [self.model.total_loss,
                    self.model.global_step,
                    self.model.lr,
                    self.model.train_op]
@@ -116,7 +116,7 @@ class Trainer(object):
                 self.model.labels: label_batch,
                 self.model.is_training: True}
 
-        fetches = [self.model.cost,
+        fetches = [self.model.total_loss,
                    self.model.global_step,
                    self.model.lr,
                    self.model.merged_summay,
