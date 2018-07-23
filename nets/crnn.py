@@ -93,8 +93,13 @@ class CRNN(object):
                                        inputs=self.logits,
                                        ignore_longer_outputs_than_inputs=True,
                                        sequence_length=self.seq_len)
-        self.cost = tf.reduce_mean(self.ctc_loss)
-        tf.summary.scalar('ctc_loss', self.cost)
+        self.ctc_loss = tf.reduce_mean(self.ctc_loss)
+        self.regularization_loss = slim.losses.get_regularization_losses()
+        self.total_loss = self.ctc_loss + self.regularization_loss
+
+        tf.summary.scalar('ctc_loss', self.ctc_loss)
+        tf.summary.scalar('regularization_loss', self.regularization_loss)
+        tf.summary.scalar('total_loss', self.total_loss)
 
         # self.lr = tf.train.exponential_decay(self.cfg.lr,
         #                                      self.global_step,
@@ -124,7 +129,7 @@ class CRNN(object):
         # https://www.tensorflow.org/api_docs/python/tf/layers/batch_normalization
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.train_op = self.optimizer.minimize(self.cost, global_step=self.global_step)
+            self.train_op = self.optimizer.minimize(self.total_loss, global_step=self.global_step)
 
         # inputs shape: [max_time x batch_size x num_classes]
         self.decoded, self.log_prob = tf.nn.ctc_greedy_decoder(self.logits, self.seq_len, merge_repeated=True)
