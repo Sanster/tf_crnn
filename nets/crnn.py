@@ -124,7 +124,7 @@ class CRNN(object):
         # https://www.tensorflow.org/api_docs/python/tf/layers/batch_normalization
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.train_op = self.optimizer.minimize(self.ctc_loss, global_step=self.global_step)
+            self.train_op = self.optimizer.minimize(self.cost, global_step=self.global_step)
 
         # inputs shape: [max_time x batch_size x num_classes]
         self.decoded, self.log_prob = tf.nn.ctc_greedy_decoder(self.logits, self.seq_len, merge_repeated=True)
