@@ -103,11 +103,13 @@ class Trainer(object):
                 self.model.is_training: True}
 
         fetches = [self.model.total_loss,
+                   self.model.ctc_loss,
+                   self.model.regularization_loss,
                    self.model.global_step,
                    self.model.lr,
                    self.model.train_op]
 
-        batch_cost, global_step, lr, _ = self.sess.run(fetches, feed)
+        batch_cost, _, _, global_step, lr, _ = self.sess.run(fetches, feed)
         return batch_cost, global_step, lr
 
     def _train_with_summary(self):
@@ -117,6 +119,8 @@ class Trainer(object):
                 self.model.is_training: True}
 
         fetches = [self.model.total_loss,
+                   self.model.ctc_loss,
+                   self.model.regularization_loss,
                    self.model.global_step,
                    self.model.lr,
                    self.model.merged_summay,
@@ -124,7 +128,7 @@ class Trainer(object):
                    self.model.edit_distance,
                    self.model.train_op]
 
-        batch_cost, global_step, lr, summary, predicts, edit_distance, _ = self.sess.run(fetches, feed)
+        batch_cost, _, _, global_step, lr, summary, predicts, edit_distance, _ = self.sess.run(fetches, feed)
         self.train_writer.add_summary(summary, global_step)
 
         predicts = [self.converter.decode(p, CRNN.CTC_INVALID_INDEX) for p in predicts]
