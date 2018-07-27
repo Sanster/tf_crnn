@@ -43,11 +43,12 @@ def main(args):
 
             input_graph_def = tf.get_default_graph().as_graph_def()
 
-            # Print all node name in graph
-            # for node in input_graph_def.node:
-            #     print(node.name)
+            # Rename
+            for node in input_graph_def.node:
+                if node.name == "SparseToDense":
+                    node.name = "output"
 
-            output_node_names = ['SparseToDense']
+            output_node_names = ["output"]
 
             # We use a built-in TF helper to export variables to constants
             output_graph_def = tf.graph_util.convert_variables_to_constants(
@@ -73,6 +74,9 @@ def get_model_filenames(model_dir):
 
 
 if __name__ == '__main__':
+    # Use CPU
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--ckpt_dir', type=str, default='./checkpoint/crnn',
