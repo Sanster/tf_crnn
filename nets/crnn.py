@@ -135,7 +135,7 @@ class CRNN(object):
         # dense_decoded shape: [batch_size, encoded_code_size(not fix)]
         # use tf.cast here to support run model on Android
         self.dense_decoded = tf.sparse_tensor_to_dense(tf.cast(self.decoded[0], tf.int32),
-                                                       default_value=self.CTC_INVALID_INDEX)
+                                                       default_value=self.CTC_INVALID_INDEX, name="output")
 
         # Edit distance for wrong result
         self.edit_distances = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.labels)

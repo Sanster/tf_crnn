@@ -54,6 +54,7 @@ class SimpleNet(object):
 
         with slim.arg_scope([slim.conv2d],
                             activation_fn=tf.nn.leaky_relu,
+                            weights_regularizer=slim.l2_regularizer(0.0001),
                             weights_initializer=slim.xavier_initializer_conv2d(uniform=True),
                             normalizer_fn=slim.batch_norm,
                             normalizer_params=batch_norm_params):
