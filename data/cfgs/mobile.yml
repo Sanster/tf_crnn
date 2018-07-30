@@ -4,9 +4,10 @@ batch_size: 96
 
 lr: 1.0
 lr_decay_epochs:
+  - 2
   - 3
   - 6
-lr_decay_rate: 0.5
+lr_decay_rate: 0.8
 
 # adadelate, adam, rms
 optimizer: adadelate
