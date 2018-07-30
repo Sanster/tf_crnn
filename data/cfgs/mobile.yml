@@ -1,6 +1,6 @@
 name: mobile
-epochs: 10
-batch_size: 96
+epochs: 15
+batch_size: 32
 
 lr: 1.0
 lr_decay_epochs:

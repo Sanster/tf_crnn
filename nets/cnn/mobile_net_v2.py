@@ -24,7 +24,7 @@ V2_CRNN = dict(
         (slim.conv2d, slim.separable_conv2d): {'padding': 'SAME'}
     },
     spec=[
-        op(slim.conv2d, stride=1, num_outputs=16, kernel_size=[3, 3]),
+        op(slim.conv2d, stride=1, num_outputs=8, kernel_size=[3, 3]),
         op(ops.expanded_conv,
            expansion_size=expand_input(1, divisible_by=1),
            num_outputs=16),
