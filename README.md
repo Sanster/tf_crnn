@@ -5,6 +5,8 @@ Sequence Recognition and Its Application to Scene Text Recognition](http://arxiv
 
 Original Code: http://github.com/bgshih/crnn
 
+If you want an end to end OCR service, check this repo: https://github.com/Sanster/DeepOcrService
+
 ## Requirements
 ```shell
 sudo pip3 install -r requirement.txt
