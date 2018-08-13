@@ -69,22 +69,20 @@ def main(unused_argv):
                                                 stddev=1.0 / IMAGE_PIXELS), name='hid_w')
         hid_b = tf.Variable(tf.zeros([FLAGS.hidden_units]), name='hid_b')
 
-        sm_w = tf.Variable(tf.truncated_normal([FLAGS.hidden_units, 10],
-                                               stddev=1.0 / math.sqrt(FLAGS.hidden_units)), name='sm_w')
-        sm_b = tf.Variable(tf.zeros([10]), name='sm_b')
-
         x = tf.placeholder(tf.float32, [None, IMAGE_PIXELS * IMAGE_PIXELS])
         y_ = tf.placeholder(tf.float32, [None, 10])
 
         hid_lin = tf.nn.xw_plus_b(x, hid_w, hid_b)
         hid = tf.nn.relu(hid_lin)
 
-        y = tf.nn.softmax(tf.nn.xw_plus_b(hid, sm_w, sm_b))
-        cross_entropy = -tf.reduce_sum(y_ * tf.log(tf.clip_by_value(y, 1e-10, 1.0)))
+        out_w = tf.Variable(tf.truncated_normal([FLAGS.hidden_units, 100]))
+        out_b = tf.Variable(tf.zeros([100]))
+        logist = tf.nn.xw_plus_b(hid, out_w, out_b)
 
-        opt = tf.train.AdamOptimizer(FLAGS.learning_rate)
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=logist))
 
-        train_step = opt.minimize(cross_entropy, global_step=global_step)
+        train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(loss, global_step=global_step)
+
         # 生成本地的参数初始化操作init_op
         init_op = tf.global_variables_initializer()
         train_dir = tempfile.mkdtemp()
@@ -121,7 +119,7 @@ def main(unused_argv):
         print('Training elapsed time:%f s' % train_time)
 
         val_feed = {x: mnist.validation.images, y_: mnist.validation.labels}
-        val_xent = sess.run(cross_entropy, feed_dict=val_feed)
+        val_xent = sess.run(loss, feed_dict=val_feed)
         print('After %d training step(s), validation cross entropy = %g' % (FLAGS.train_steps, val_xent))
     sess.close()
 
