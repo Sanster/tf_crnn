@@ -93,7 +93,9 @@ def main(unused_argv):
         accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
         hooks = [tf.train.StopAtStepHook(last_step=FLAGS.train_steps)]
+
         local_step = 0
+        step = 0
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                config=config,
                                                is_chief=is_chief,
@@ -101,22 +103,22 @@ def main(unused_argv):
                                                hooks=hooks) as mon_sess:
             while not mon_sess.should_stop():
                 # SyncReplicasOptimizer perform *synchronous* training.
-                batch_xs, batch_ys = mnist.train.next_batch(FLAGS.batch_size)
-                train_feed = {x: batch_xs, y_: batch_ys}
+                if step == 99:
+                    val_feed = {x: mnist.validation.images, y_: mnist.validation.labels}
+                    acc = mon_sess.run(accuracy, feed_dict=val_feed)
+                    print("Val acc: %f" % acc)
+                else:
+                    batch_xs, batch_ys = mnist.train.next_batch(FLAGS.batch_size)
+                    train_feed = {x: batch_xs, y_: batch_ys}
 
-                # Run a training step asynchronously.
-                _, step = mon_sess.run([train_op, global_step], feed_dict=train_feed)
-                local_step += 1
+                    # Run a training step asynchronously.
+                    _, step = mon_sess.run([train_op, global_step], feed_dict=train_feed)
+                    local_step += 1
 
-                print('%f: Worker %d: traing step %d dome (global step:%d)' % (
-                    time.time(), FLAGS.task_index, local_step, step))
+                    print('%f: Worker %d: traing step %d dome (global step:%d)' % (
+                        time.time(), FLAGS.task_index, local_step, step))
 
             print("Local run steps: %d" % local_step)
-
-            if is_chief:
-                val_feed = {x: mnist.validation.images, y_: mnist.validation.labels}
-                val_acc = mon_sess.run(accuracy, feed_dict=val_feed)
-                print('After %d training step(s), validation acc = %g' % (FLAGS.train_steps, val_acc))
 
 
 if __name__ == '__main__':
