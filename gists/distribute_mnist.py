@@ -49,17 +49,22 @@ def main(unused_argv):
     ps_spec = FLAGS.ps_hosts.split(',')
     worker_spec = FLAGS.worker_hosts.split(',')
 
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
     # 创建集群
-    num_worker = len(worker_spec)
     cluster = tf.train.ClusterSpec({'ps': ps_spec, 'worker': worker_spec})
-    server = tf.train.Server(cluster, job_name=FLAGS.job_name, task_index=FLAGS.task_index)
-    print(server.target)
+    server = tf.train.Server(cluster, job_name=FLAGS.job_name, task_index=FLAGS.task_index, config=config)
+
     if FLAGS.job_name == 'ps':
-        print("Join parameter server!")
         server.join()
 
     is_chief = (FLAGS.task_index == 0)
-    # worker_device = '/job:worker/task%d/cpu:0' % FLAGS.task_index
+    if is_chief:
+        print('Worker %d: Initailizing session...' % FLAGS.task_index)
+    else:
+        print('Worker %d: Waiting for session to be initaialized...' % FLAGS.task_index)
+
     with tf.device(tf.train.replica_device_setter(
             cluster=cluster
     )):
@@ -75,53 +80,43 @@ def main(unused_argv):
         hid_lin = tf.nn.xw_plus_b(x, hid_w, hid_b)
         hid = tf.nn.relu(hid_lin)
 
-        out_w = tf.Variable(tf.truncated_normal([FLAGS.hidden_units, 100]))
-        out_b = tf.Variable(tf.zeros([100]))
-        logist = tf.nn.xw_plus_b(hid, out_w, out_b)
+        out_w = tf.Variable(tf.truncated_normal([FLAGS.hidden_units, 10]), name='out_w')
+        out_b = tf.Variable(tf.zeros([10]), name='out_b')
+        logits = tf.nn.xw_plus_b(hid, out_w, out_b)
 
-        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=logist))
+        prediction = tf.nn.softmax(logits, name="prediction")
 
-        train_step = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(loss, global_step=global_step)
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=logits))
+        train_op = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(loss, global_step=global_step)
 
-        # 生成本地的参数初始化操作init_op
-        init_op = tf.global_variables_initializer()
-        train_dir = tempfile.mkdtemp()
-        sv = tf.train.Supervisor(is_chief=is_chief, logdir=train_dir, init_op=init_op, recovery_wait_secs=1,
-                                 global_step=global_step)
+        correct_pred = tf.equal(tf.argmax(prediction, 1), tf.argmax(y_, 1))
+        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
-        if is_chief:
-            print('Worker %d: Initailizing session...' % FLAGS.task_index)
-        else:
-            print('Worker %d: Waiting for session to be initaialized...' % FLAGS.task_index)
-        sess = sv.prepare_or_wait_for_session(server.target)
-        print('Worker %d: Session initialization  complete.' % FLAGS.task_index)
-
-        time_begin = time.time()
-        print('Traing begins @ %f' % time_begin)
-
+        hooks = [tf.train.StopAtStepHook(last_step=FLAGS.train_steps)]
         local_step = 0
-        while True:
-            batch_xs, batch_ys = mnist.train.next_batch(FLAGS.batch_size)
-            train_feed = {x: batch_xs, y_: batch_ys}
+        with tf.train.MonitoredTrainingSession(master=server.target,
+                                               config=config,
+                                               is_chief=is_chief,
+                                               checkpoint_dir="/tmp/mnist",
+                                               hooks=hooks) as mon_sess:
+            while not mon_sess.should_stop():
+                # SyncReplicasOptimizer perform *synchronous* training.
+                batch_xs, batch_ys = mnist.train.next_batch(FLAGS.batch_size)
+                train_feed = {x: batch_xs, y_: batch_ys}
 
-            _, step = sess.run([train_step, global_step], feed_dict=train_feed)
-            local_step += 1
+                # Run a training step asynchronously.
+                _, step = mon_sess.run([train_op, global_step], feed_dict=train_feed)
+                local_step += 1
 
-            now = time.time()
-            print('%f: Worker %d: traing step %d dome (global step:%d)' % (now, FLAGS.task_index, local_step, step))
+                print('%f: Worker %d: traing step %d dome (global step:%d)' % (
+                    time.time(), FLAGS.task_index, local_step, step))
 
-            if step >= FLAGS.train_steps:
-                break
+            print("Local run steps: %d" % local_step)
 
-        time_end = time.time()
-        print('Training ends @ %f' % time_end)
-        train_time = time_end - time_begin
-        print('Training elapsed time:%f s' % train_time)
-
-        val_feed = {x: mnist.validation.images, y_: mnist.validation.labels}
-        val_xent = sess.run(loss, feed_dict=val_feed)
-        print('After %d training step(s), validation cross entropy = %g' % (FLAGS.train_steps, val_xent))
-    sess.close()
+            if is_chief:
+                val_feed = {x: mnist.validation.images, y_: mnist.validation.labels}
+                val_acc = mon_sess.run(accuracy, feed_dict=val_feed)
+                print('After %d training step(s), validation acc = %g' % (FLAGS.train_steps, val_acc))
 
 
 if __name__ == '__main__':
