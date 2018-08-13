@@ -2,7 +2,7 @@ name: dense
 epochs: 10
 batch_size: 64
 
-lr: 1
+lr: 1.0
 lr_decay_epochs:
   - 3
   - 6
@@ -13,5 +13,5 @@ optimizer: adadelate
 
 use_lstm: true
 num_lstm_layer: 2
-rnn_keep_prob: 1.0
+rnn_keep_prob: 0.8
 rnn_num_units: 256
